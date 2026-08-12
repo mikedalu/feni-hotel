@@ -1,0 +1,92 @@
+package com.backend.feni.service;
+
+import com.backend.feni.dto.request.SelfCheckinConfirmRequest;
+import com.backend.feni.entity.Facility;
+import com.backend.feni.repository.FacilityRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClient;
+
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+@Slf4j
+public class SelfCheckinService {
+
+    private final BookingService bookingService;
+    private final R2UploadService r2UploadService;
+    private final FacilityRepository facilityRepo;
+    private final RestClient restClient;
+    
+    @Value("${cloud.sync.api-key}")
+    private String cloudApiKey;
+
+    @Value("${cloud.sync.url}")
+    private String cloudSyncUrl; // e.g. http://localhost:3000/api/sync/events. We can derive checkin URL from it.
+
+    public SelfCheckinService(BookingService bookingService, 
+                              R2UploadService r2UploadService, 
+                              FacilityRepository facilityRepo) {
+        this.bookingService = bookingService;
+        this.r2UploadService = r2UploadService;
+        this.facilityRepo = facilityRepo;
+        this.restClient = RestClient.create();
+    }
+
+    private String getCloudCheckinUrl() {
+        return cloudSyncUrl.replace("/sync/events", "/checkin/session");
+    }
+
+    public String startSession(UUID staffId) {
+        String sessionId = UUID.randomUUID().toString();
+        
+        Facility facility = facilityRepo.findAll().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("Facility not found"));
+
+        try {
+            ResponseEntity<Void> response = restClient.post()
+                    .uri(getCloudCheckinUrl())
+                    .header("x-facility-api-key", cloudApiKey)
+                    .body(Map.of("sessionId", sessionId, "facilityId", facility.getId().toString()))
+                    .retrieve()
+                    .toBodilessEntity();
+            
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Failed to open cloud clipboard session");
+            }
+        } catch (Exception e) {
+            log.error("Error communicating with Cloud API to start session", e);
+            throw new RuntimeException("Could not start self check-in session", e);
+        }
+
+        return sessionId;
+    }
+
+    @Transactional
+    public void confirmCheckin(String sessionId, SelfCheckinConfirmRequest request, UUID staffId) {
+        Facility facility = facilityRepo.findAll().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("Facility not found"));
+
+        // 1. Core booking flow handles the Booking, Journal, and Outbox event
+        bookingService.createBooking(request.getBookingRequest(), staffId);
+
+        // 2. Upload ID scan asynchronously
+        r2UploadService.uploadIdScanAsync(request.getIdScanBase64(), facility.getId());
+
+        // 3. Clear cloud session to prevent stale data
+        try {
+            restClient.delete()
+                    .uri(getCloudCheckinUrl() + "/" + sessionId)
+                    .header("x-facility-api-key", cloudApiKey)
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Cleared Cloud Clipboard session: {}", sessionId);
+        } catch (Exception e) {
+            log.error("Failed to delete Cloud Clipboard session after confirm. It will expire naturally.", e);
+        }
+    }
+}
