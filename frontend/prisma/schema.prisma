@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Facility {
+  id        String   @id @default(uuid())
+  name      String
+  apiKey    String   @unique
+  createdAt DateTime @default(now())
+}
+
+model SyncEvent {
+  id          String   @id
+  facilityId  String
+  eventType   String
+  payload     String
+  syncedAt    DateTime @default(now())
+
+  @@index([facilityId])
+}

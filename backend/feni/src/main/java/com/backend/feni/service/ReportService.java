@@ -5,6 +5,7 @@ import com.backend.feni.entity.JournalEntry;
 import com.backend.feni.entity.Product;
 import com.backend.feni.repository.BookingRepository;
 import com.backend.feni.repository.JournalEntryRepository;
+import com.backend.feni.repository.JournalLineRepository;
 import com.backend.feni.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,9 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -23,16 +27,20 @@ public class ReportService {
     private final PdfGenerationService pdfService;
     private final BookingRepository bookingRepo;
     private final JournalEntryRepository journalRepo;
+    private final JournalLineRepository journalLineRepo;
     private final ProductRepository productRepo;
 
-    public String generateReport(String type) {
+    public String generateReport(String type, LocalDate date) {
         String title;
         StringBuilder content = new StringBuilder();
 
+        Instant startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant endOfDay = date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
         switch (type.toLowerCase()) {
             case "occupancy":
-                title = "Occupancy Report";
-                List<Booking> bookings = bookingRepo.findAll();
+                title = "Occupancy Report - " + date;
+                List<Booking> bookings = bookingRepo.findByCreatedAtBetween(startOfDay, endOfDay);
                 content.append("Total Bookings: ").append(bookings.size()).append("\n");
                 for (Booking b : bookings) {
                     content.append(b.getGuest().getFirstName()).append(" ").append(b.getGuest().getLastName())
@@ -43,11 +51,11 @@ public class ReportService {
                 break;
 
             case "shift-summary":
-                title = "D.S.S / S.I.D REPORT";
+                title = "D.S.S / S.I.D REPORT - " + date;
                 String[] dssHeaders = { "S/N", "GUEST NAME", "PHONE", "OCCUPATION", "ADDRESS", "NATIONALITY", "ARRIVAL",
                         "DEPARTURE", "ROOM NO", "PURPOSE", "STATE", "LGA", "NOK PHONE" };
                 List<String[]> dssRows = new ArrayList<>();
-                List<Booking> dssBookings = bookingRepo.findAll(); // In a real scenario, filter by date
+                List<Booking> dssBookings = bookingRepo.findByCreatedAtBetween(startOfDay, endOfDay);
                 int sn = 1;
                 for (Booking b : dssBookings) {
                     com.backend.feni.entity.Guest g = b.getGuest();
@@ -70,11 +78,11 @@ public class ReportService {
                 return savePdf(pdfService.generateTablePdf(title, dssHeaders, dssRows));
 
             case "sales":
-                title = "DAILY SALES BOOK (ACCOMMODATION)";
+                title = "DAILY SALES BOOK (ACCOMMODATION) - " + date;
                 String[] salesHeaders = { "S/N", "ROOM NO", "RM CATEGORY", "AMOUNT", "CASH", "TRANSFER", "POS",
                         "REMARK" };
                 List<String[]> salesRows = new ArrayList<>();
-                List<Booking> salesBookings = bookingRepo.findAll(); // In a real scenario, filter by date
+                List<Booking> salesBookings = bookingRepo.findByCreatedAtBetween(startOfDay, endOfDay);
                 int ssn = 1;
                 BigDecimal totalAmount = BigDecimal.ZERO;
                 BigDecimal totalCash = BigDecimal.ZERO;
@@ -114,6 +122,30 @@ public class ReportService {
                         totalTransfer.toString(), totalPos.toString(), "" });
 
                 return savePdf(pdfService.generateTablePdf(title, salesHeaders, salesRows));
+
+            case "admin-revenue":
+                title = "Daily Revenue Breakdown - " + date;
+                List<com.backend.feni.entity.JournalLine> revLines = journalLineRepo.findByAccountNameStartingWithAndDateBetween("Sales Revenue -", startOfDay, endOfDay);
+                
+                BigDecimal roomsRev = BigDecimal.ZERO;
+                BigDecimal barRev = BigDecimal.ZERO;
+                BigDecimal kitchenRev = BigDecimal.ZERO;
+                BigDecimal otherRev = BigDecimal.ZERO;
+
+                for (com.backend.feni.entity.JournalLine jl : revLines) {
+                    if (jl.getAccountName().contains("ROOMS")) roomsRev = roomsRev.add(jl.getCreditAmount());
+                    else if (jl.getAccountName().contains("BAR")) barRev = barRev.add(jl.getCreditAmount());
+                    else if (jl.getAccountName().contains("KITCHEN")) kitchenRev = kitchenRev.add(jl.getCreditAmount());
+                    else otherRev = otherRev.add(jl.getCreditAmount());
+                }
+
+                content.append("Rooms Revenue: $").append(roomsRev).append("\n");
+                content.append("Bar Revenue: $").append(barRev).append("\n");
+                content.append("Kitchen Revenue: $").append(kitchenRev).append("\n");
+                content.append("Other Revenue: $").append(otherRev).append("\n");
+                content.append("----------------------------\n");
+                content.append("Total Revenue: $").append(roomsRev.add(barRev).add(kitchenRev).add(otherRev)).append("\n");
+                break;
 
             case "inventory":
                 title = "Inventory Low-Stock Report";

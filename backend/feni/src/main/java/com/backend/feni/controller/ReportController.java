@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -20,8 +21,15 @@ public class ReportController {
     private final ReportService reportService;
 
     @PostMapping("/{type}/generate")
-    public ReportResponse generateReport(@PathVariable String type) {
-        String url = reportService.generateReport(type);
+    public ReportResponse generateReport(
+            @PathVariable String type,
+            @RequestParam(required = false) LocalDate date) {
+        
+        if (date == null) {
+            date = LocalDate.now();
+        }
+        
+        String url = reportService.generateReport(type, date);
         return new ReportResponse(url);
     }
 

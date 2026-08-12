@@ -15,6 +15,18 @@ spring:
           auth: true
           starttls:
             enable: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: "http://hotel-hub.local" # placeholder
+          
+cloud:
+  sync:
+    url: "http://localhost:3000/api/sync/events"
+    api-key: "default-dev-key"
+    polling-delay: 5000
+
 jwt:
   signing-key: ${JWT_SIGNING_KEY:ixIqWy3sfa/0eGpABwxplhQ8HrCyUMBAnbpNzXt5Z1k=}
 
