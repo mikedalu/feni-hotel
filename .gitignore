@@ -1,0 +1,66 @@
+# Root GitIgnore for Feni Hospitality SaaS (SenForge)
+# Tracks both frontend and backend in a single repository
+
+# ==========================================
+# Generic / IDE / System Ignores
+# ==========================================
+.DS_Store
+*.pem
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+*.log
+
+# ==========================================
+# Frontend Ignores
+# ==========================================
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
+frontend/coverage/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+frontend/.env*
+frontend/.vercel/
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# ==========================================
+# Backend Ignores
+# ==========================================
+backend/feni/HELP.md
+backend/feni/target/
+backend/feni/.mvn/wrapper/maven-wrapper.jar
+!backend/feni/**/src/main/**/target/
+!backend/feni/**/src/test/**/target/
+
+# STS
+backend/feni/.apt_generated
+backend/feni/.classpath
+backend/feni/.factorypath
+backend/feni/.project
+backend/feni/.settings
+backend/feni/.springBeans
+backend/feni/.sts4-cache
+
+# NetBeans
+backend/feni/nbproject/private/
+backend/feni/nbbuild/
+backend/feni/dist/
+backend/feni/nbdist/
+backend/feni/.nb-gradle/
+backend/feni/build/
+!backend/feni/**/src/main/**/build/
+!backend/feni/**/src/test/**/build/

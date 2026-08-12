@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: feni
+  jpa:
+    hibernate:
+      ddl-auto: update
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_SENDER_ADDRESS:test@example.com}
+    password: ${GMAIL_APP_PASSWORD:testpassword}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+jwt:
+  signing-key: ${JWT_SIGNING_KEY:ixIqWy3sfa/0eGpABwxplhQ8HrCyUMBAnbpNzXt5Z1k=}
+
+# application.yml (dev/local default)
+springdoc:
+  swagger-ui:
+    enabled: true
+
+bootstrap:
+  facility:
+    name: ${FACILITY_NAME:Feni Hotel}
+    timezone: ${FACILITY_TIMEZONE:UTC}
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    # no default password — to avoid accidentally shipping to production

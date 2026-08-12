@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: feni-prod
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_SENDER_ADDRESS}
+    password: ${GMAIL_APP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+jwt:
+  signing-key: ${JWT_SIGNING_KEY}
+
+# application-prod.yml
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false

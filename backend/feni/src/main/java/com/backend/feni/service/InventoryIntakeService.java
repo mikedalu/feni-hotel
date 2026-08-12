@@ -1,0 +1,97 @@
+package com.backend.feni.service;
+
+import com.backend.feni.dto.request.InventoryIntakeItemRequest;
+import com.backend.feni.dto.request.InventoryIntakeRequest;
+import com.backend.feni.entity.JournalEntry;
+import com.backend.feni.entity.JournalLine;
+import com.backend.feni.entity.OutboxEvent;
+import com.backend.feni.entity.Product;
+import com.backend.feni.entity.enums.EntryType;
+import com.backend.feni.entity.enums.OutboxStatus;
+import com.backend.feni.entity.enums.ProductType;
+import com.backend.feni.exception.UnbalancedJournalException;
+import com.backend.feni.repository.JournalEntryRepository;
+import com.backend.feni.repository.OutboxEventRepository;
+import com.backend.feni.repository.ProductRepository;
+import com.backend.feni.repository.StaffUserRepository;
+import com.backend.feni.entity.StaffUser;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class InventoryIntakeService {
+
+    private final ProductRepository productRepo;
+    private final JournalEntryRepository journalRepo;
+    private final OutboxEventRepository outboxRepo;
+    private final ThermalPrinterService printerService;
+    private final StaffUserRepository staffRepo;
+
+    @Transactional
+    public void receiveShipment(InventoryIntakeRequest request, UUID staffId) {
+        UUID intakeReferenceId = UUID.randomUUID();
+
+        StaffUser staffUser = staffRepo.findById(staffId)
+                .orElseThrow(() -> new IllegalArgumentException("Staff user not found"));
+
+        JournalEntry journalEntry = JournalEntry.builder()
+                .entryType(EntryType.INVENTORY_INTAKE)
+                .referenceId(intakeReferenceId)
+                .processedBy(staffUser)
+                .build();
+
+        BigDecimal totalInventoryValue = BigDecimal.ZERO;
+
+        for (InventoryIntakeItemRequest itemReq : request.getItems()) {
+            Product product = productRepo.findByInternalSku(itemReq.getInternalSku())
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemReq.getInternalSku()));
+
+            if (product.getType() != ProductType.RAW_GOOD) {
+                throw new IllegalArgumentException("Cannot intake inventory for non-raw goods: " + product.getName());
+            }
+
+            product.setStockQty((product.getStockQty() == null ? 0 : product.getStockQty()) + itemReq.getQuantity());
+
+            BigDecimal lineValue = product.getUnitCost().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            totalInventoryValue = totalInventoryValue.add(lineValue);
+
+            productRepo.save(product);
+
+            // Print labels async if printer IP provided and product needs an internal SKU sticker
+            if (request.getPrinterIp() != null && !request.getPrinterIp().isEmpty()) {
+                if (!product.hasManufacturerBarcode()) {
+                    printerService.printInventoryLabelsAsync(product, itemReq.getQuantity(), request.getPrinterIp());
+                }
+            }
+        }
+
+        // 2 lines of accounting
+        journalEntry.addLine(JournalLine.builder().accountName("Inventory Asset").debitAmount(totalInventoryValue).creditAmount(BigDecimal.ZERO).build());
+        journalEntry.addLine(JournalLine.builder().accountName("Accounts Payable").debitAmount(BigDecimal.ZERO).creditAmount(totalInventoryValue).build());
+
+        // Validate journal balance
+        BigDecimal totalDebit = journalEntry.getLines().stream().map(JournalLine::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredit = journalEntry.getLines().stream().map(JournalLine::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        if (totalDebit.compareTo(totalCredit) != 0) {
+            throw new UnbalancedJournalException("Journal entry is unbalanced. Debits: " + totalDebit + ", Credits: " + totalCredit);
+        }
+
+        journalRepo.save(journalEntry);
+
+        // Transactional Outbox
+        OutboxEvent event = OutboxEvent.builder()
+                .eventType("INVENTORY_RECEIVED")
+                .payload("{\"referenceId\":\"" + intakeReferenceId + "\", \"totalValue\":" + totalInventoryValue + "}")
+                .status(OutboxStatus.PENDING)
+                .build();
+        outboxRepo.save(event);
+    }
+}
