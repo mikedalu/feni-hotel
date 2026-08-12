@@ -7,9 +7,11 @@ import com.backend.feni.entity.OutboxEvent;
 import com.backend.feni.entity.Product;
 import com.backend.feni.entity.enums.EntryType;
 import com.backend.feni.entity.enums.ProductType;
+import com.backend.feni.entity.StaffUser;
 import com.backend.feni.repository.JournalEntryRepository;
 import com.backend.feni.repository.OutboxEventRepository;
 import com.backend.feni.repository.ProductRepository;
+import com.backend.feni.repository.StaffUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,12 +70,11 @@ public class PosSaleServiceIntegrationTest {
     @org.springframework.transaction.annotation.Transactional
     void testCompleteSale_Success() {
         // Arrange
-        StaffUser staff = StaffUser.builder()
-                .username("teststaff")
-                .passwordHash("hash")
-                .role(com.backend.feni.entity.enums.Role.BARTENDER)
-                .mustChangePassword(false)
-                .build();
+        StaffUser staff = new StaffUser();
+        staff.setUsername("teststaff");
+        staff.setPasswordHash("hash");
+        staff.setRole(com.backend.feni.entity.enums.Role.BARTENDER);
+        staff.setMustChangePassword(false);
         staff = staffRepository.save(staff);
 
         Product beer = Product.builder()
@@ -83,6 +84,7 @@ public class PosSaleServiceIntegrationTest {
                 .stockQty(10)
                 .price(new BigDecimal("5.00"))
                 .unitCost(new BigDecimal("2.00"))
+                .revenueCenter(com.backend.feni.entity.enums.RevenueCenter.BAR)
                 .build();
         productRepository.save(beer);
 
@@ -92,6 +94,7 @@ public class PosSaleServiceIntegrationTest {
 
         PosSaleRequest saleReq = new PosSaleRequest();
         saleReq.setItems(List.of(itemReq));
+        saleReq.setPaymentMethod(com.backend.feni.entity.enums.PaymentMethod.CASH);
 
         // Act
         posSaleService.completeSale(saleReq, staff.getId());

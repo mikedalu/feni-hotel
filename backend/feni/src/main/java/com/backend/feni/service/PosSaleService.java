@@ -79,9 +79,28 @@ public class PosSaleService {
         receiptBuilder.append(String.format("TOTAL: $%s\n", totalRevenue.toString()));
         receiptBuilder.append("============================\n");
 
-        // 4 lines of accounting
-        journalEntry.addLine(JournalLine.builder().accountName("Cash").debitAmount(totalRevenue).creditAmount(BigDecimal.ZERO).build());
-        journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue").debitAmount(BigDecimal.ZERO).creditAmount(totalRevenue).build());
+        String debitAccount = switch (request.getPaymentMethod()) {
+            case CASH -> "Cash";
+            case POS -> "Card Payments";
+            case TRANSFER -> "Bank Transfers";
+        };
+
+        // 4 lines of accounting (basic structure, we need to handle per-product revenue centers if they differ, but we can simplify by grouping revenue by center)
+        journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(totalRevenue).creditAmount(BigDecimal.ZERO).build());
+        
+        // Group revenue by center
+        java.util.Map<String, BigDecimal> revenueByCenter = new java.util.HashMap<>();
+        for (PosSaleItemRequest itemReq : request.getItems()) {
+            Product p = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
+                .orElseGet(() -> productRepo.findByManufacturerBarcode(itemReq.getSkuOrBarcode()).orElseThrow());
+            String accountName = "Sales Revenue - " + p.getRevenueCenter().name();
+            BigDecimal lineRev = p.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            revenueByCenter.put(accountName, revenueByCenter.getOrDefault(accountName, BigDecimal.ZERO).add(lineRev));
+        }
+        
+        for (java.util.Map.Entry<String, BigDecimal> entry : revenueByCenter.entrySet()) {
+            journalEntry.addLine(JournalLine.builder().accountName(entry.getKey()).debitAmount(BigDecimal.ZERO).creditAmount(entry.getValue()).build());
+        }
         journalEntry.addLine(JournalLine.builder().accountName("Cost of Goods Sold").debitAmount(totalCogs).creditAmount(BigDecimal.ZERO).build());
         journalEntry.addLine(JournalLine.builder().accountName("Inventory Asset").debitAmount(BigDecimal.ZERO).creditAmount(totalCogs).build());
 

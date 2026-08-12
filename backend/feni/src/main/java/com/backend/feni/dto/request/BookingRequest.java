@@ -6,6 +6,7 @@ import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import com.backend.feni.entity.enums.PaymentMethod;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -37,6 +38,27 @@ public class BookingRequest {
     @NotBlank
     private String roomNumber;
 
+    @NotBlank
+    private String roomType;
+
+    private String checkInTime;
+
+    @NotNull
+    private PaymentMethod paymentMethod;
+
     @NotNull
     private BigDecimal totalCost;
+
+    // Optional fields from Guest form
+    private String title;
+    private String occupation;
+    private String nextOfKinPhone;
+    private String address;
+    private String lga;
+    private String nationality;
+    private String stateOfOrigin;
+    private String passportNo;
+    private String purposeOfVisit;
+    private String arrivingFrom;
+    private String goingTo;
 }

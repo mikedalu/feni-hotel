@@ -1,6 +1,7 @@
 package com.backend.feni.entity;
 
 import com.backend.feni.entity.enums.ProductType;
+import com.backend.feni.entity.enums.RevenueCenter;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,6 +29,10 @@ public class Product {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ProductType type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RevenueCenter revenueCenter;
 
     // Only used for RAW_GOOD (manufacturer barcode, if any)
     @Column(unique = true)

@@ -47,6 +47,17 @@ public class BookingService {
                         .lastName(request.getGuestLastName())
                         .email(request.getGuestEmail())
                         .phone(request.getGuestPhone())
+                        .title(request.getTitle())
+                        .occupation(request.getOccupation())
+                        .nextOfKinPhone(request.getNextOfKinPhone())
+                        .address(request.getAddress())
+                        .lga(request.getLga())
+                        .nationality(request.getNationality())
+                        .stateOfOrigin(request.getStateOfOrigin())
+                        .passportNo(request.getPassportNo())
+                        .purposeOfVisit(request.getPurposeOfVisit())
+                        .arrivingFrom(request.getArrivingFrom())
+                        .goingTo(request.getGoingTo())
                         .build());
         guest = guestRepo.save(guest);
 
@@ -56,6 +67,9 @@ public class BookingService {
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
                 .roomNumber(request.getRoomNumber())
+                .roomType(request.getRoomType())
+                .checkInTime(request.getCheckInTime())
+                .paymentMethod(request.getPaymentMethod())
                 .totalCost(request.getTotalCost())
                 .build();
         booking = bookingRepo.save(booking);
@@ -66,8 +80,14 @@ public class BookingService {
                 .processedBy(staffUser)
                 .build();
 
-        journalEntry.addLine(JournalLine.builder().accountName("Cash").debitAmount(request.getTotalCost()).creditAmount(BigDecimal.ZERO).build());
-        journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue").debitAmount(BigDecimal.ZERO).creditAmount(request.getTotalCost()).build());
+        String debitAccount = switch (request.getPaymentMethod()) {
+            case CASH -> "Cash";
+            case POS -> "Card Payments";
+            case TRANSFER -> "Bank Transfers";
+        };
+
+        journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(request.getTotalCost()).creditAmount(BigDecimal.ZERO).build());
+        journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue - ROOMS").debitAmount(BigDecimal.ZERO).creditAmount(request.getTotalCost()).build());
 
         BigDecimal totalDebit = journalEntry.getLines().stream().map(JournalLine::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCredit = journalEntry.getLines().stream().map(JournalLine::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);

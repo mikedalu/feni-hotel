@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import com.backend.feni.entity.enums.PaymentMethod;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -40,6 +41,15 @@ public class Booking {
 
     @Column(nullable = false)
     private String roomNumber;
+
+    @Column(nullable = false)
+    private String roomType;
+
+    private String checkInTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentMethod paymentMethod;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalCost;

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,16 +41,65 @@ public class ReportService {
                 break;
 
             case "shift-summary":
-                title = "Daily Shift Summary";
-                content.append("Shift Summary Report\n(Metrics for the current shift would appear here.)\n");
-                break;
+                title = "D.S.S / S.I.D REPORT";
+                String[] dssHeaders = {"S/N", "GUEST NAME", "PHONE", "OCCUPATION", "ADDRESS", "NATIONALITY", "ARRIVAL", "DEPARTURE", "ROOM NO", "PURPOSE", "STATE", "LGA", "NOK PHONE"};
+                List<String[]> dssRows = new ArrayList<>();
+                List<Booking> dssBookings = bookingRepo.findAll(); // In a real scenario, filter by date
+                int sn = 1;
+                for (Booking b : dssBookings) {
+                    com.backend.feni.entity.Guest g = b.getGuest();
+                    dssRows.add(new String[]{
+                        String.valueOf(sn++),
+                        g.getFirstName() + " " + g.getLastName(),
+                        g.getPhone(),
+                        g.getOccupation(),
+                        g.getAddress(),
+                        g.getNationality(),
+                        b.getCheckInDate().toString(),
+                        b.getCheckOutDate().toString(),
+                        b.getRoomNumber(),
+                        g.getPurposeOfVisit(),
+                        g.getStateOfOrigin(),
+                        g.getLga(),
+                        g.getNextOfKinPhone()
+                    });
+                }
+                return savePdf(pdfService.generateTablePdf(title, dssHeaders, dssRows));
 
             case "sales":
-                title = "Sales Report";
-                List<JournalEntry> entries = journalRepo.findAll();
-                long salesCount = entries.stream().filter(e -> e.getEntryType().name().equals("SALE")).count();
-                content.append("Total Sales Transactions: ").append(salesCount).append("\n");
-                break;
+                title = "DAILY SALES BOOK (ACCOMMODATION)";
+                String[] salesHeaders = {"S/N", "ROOM NO", "RM CATEGORY", "AMOUNT", "CASH", "TRANSFER", "POS", "REMARK"};
+                List<String[]> salesRows = new ArrayList<>();
+                List<Booking> salesBookings = bookingRepo.findAll(); // In a real scenario, filter by date
+                int ssn = 1;
+                BigDecimal totalAmount = BigDecimal.ZERO;
+                BigDecimal totalCash = BigDecimal.ZERO;
+                BigDecimal totalTransfer = BigDecimal.ZERO;
+                BigDecimal totalPos = BigDecimal.ZERO;
+                
+                for (Booking b : salesBookings) {
+                    BigDecimal cost = b.getTotalCost();
+                    totalAmount = totalAmount.add(cost);
+                    
+                    String cash = "", transfer = "", pos = "";
+                    if (b.getPaymentMethod() == com.backend.feni.entity.enums.PaymentMethod.CASH) { cash = cost.toString(); totalCash = totalCash.add(cost); }
+                    if (b.getPaymentMethod() == com.backend.feni.entity.enums.PaymentMethod.TRANSFER) { transfer = cost.toString(); totalTransfer = totalTransfer.add(cost); }
+                    if (b.getPaymentMethod() == com.backend.feni.entity.enums.PaymentMethod.POS) { pos = cost.toString(); totalPos = totalPos.add(cost); }
+                    
+                    salesRows.add(new String[]{
+                        String.valueOf(ssn++),
+                        b.getRoomNumber(),
+                        b.getRoomType(),
+                        cost.toString(),
+                        cash,
+                        transfer,
+                        pos,
+                        ""
+                    });
+                }
+                salesRows.add(new String[]{"", "TOTAL", "", totalAmount.toString(), totalCash.toString(), totalTransfer.toString(), totalPos.toString(), ""});
+                
+                return savePdf(pdfService.generateTablePdf(title, salesHeaders, salesRows));
 
             case "inventory":
                 title = "Inventory Low-Stock Report";
@@ -73,6 +123,10 @@ public class ReportService {
         }
 
         byte[] pdfBytes = pdfService.generateSimpleTextPdf(title, content.toString());
+        return savePdf(pdfBytes);
+    }
+    
+    private String savePdf(byte[] pdfBytes) {
         String filename = UUID.randomUUID().toString() + ".pdf";
         
         try {
