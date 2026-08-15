@@ -33,11 +33,15 @@ public class PosSaleService {
     private final OutboxEventRepository outboxRepo;
     private final ThermalPrinterService printerService;
     private final StaffUserRepository staffRepo;
+    private final com.backend.feni.service.email.EmailSender emailSender;
+
+    @org.springframework.beans.factory.annotation.Value("${email.admin-address:admin@feni.local}")
+    private String adminEmail;
 
     @Transactional
     public void completeSale(PosSaleRequest request, UUID staffId) {
         UUID saleReferenceId = UUID.randomUUID();
-        
+
         StaffUser staffUser = staffRepo.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Staff user not found"));
 
@@ -51,18 +55,35 @@ public class PosSaleService {
         BigDecimal totalCogs = BigDecimal.ZERO;
 
         StringBuilder receiptBuilder = new StringBuilder();
-        receiptBuilder.append("==== FENI HOTEL RECEIPT ====\n");
+        receiptBuilder.append("============================\n");
+        receiptBuilder.append("         FENI HOTEL         \n");
+        receiptBuilder.append(" No. 1, Keana Link Road, Jos\n");
+        receiptBuilder.append("    Tel: +234 123 456 7890  \n");
+        receiptBuilder.append("============================\n");
+        receiptBuilder.append("        POS RECEIPT         \n");
+        receiptBuilder.append("============================\n\n");
 
         for (PosSaleItemRequest itemReq : request.getItems()) {
             Product product = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
                     .orElseGet(() -> productRepo.findByManufacturerBarcode(itemReq.getSkuOrBarcode())
-                            .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemReq.getSkuOrBarcode())));
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "Product not found: " + itemReq.getSkuOrBarcode())));
 
             if (product.getType() == ProductType.RAW_GOOD) {
                 if (product.getStockQty() == null || product.getStockQty() < itemReq.getQuantity()) {
                     throw new IllegalStateException("Insufficient stock for product: " + product.getName());
                 }
                 product.setStockQty(product.getStockQty() - itemReq.getQuantity());
+
+                // Low stock check
+                if (product.getLowStockThreshold() != null && product.getStockQty() <= product.getLowStockThreshold()) {
+                    String subject = "Low Stock Alert: " + product.getName();
+                    String htmlBody = String.format(
+                            "<p>The stock for <b>%s</b> (SKU: %s) has dropped to <b>%d</b>, which is at or below the threshold of %d.</p>",
+                            product.getName(), product.getInternalSku(), product.getStockQty(),
+                            product.getLowStockThreshold());
+                    emailSender.send(adminEmail, subject, htmlBody);
+                }
             }
 
             BigDecimal lineRevenue = product.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
@@ -71,8 +92,9 @@ public class PosSaleService {
             totalRevenue = totalRevenue.add(lineRevenue);
             totalCogs = totalCogs.add(lineCogs);
 
-            receiptBuilder.append(String.format("%s x%d  $%s\n", product.getName(), itemReq.getQuantity(), lineRevenue.toString()));
-            
+            receiptBuilder.append(
+                    String.format("%s x%d  $%s\n", product.getName(), itemReq.getQuantity(), lineRevenue.toString()));
+
             productRepo.save(product);
         }
 
@@ -85,31 +107,39 @@ public class PosSaleService {
             case TRANSFER -> "Bank Transfers";
         };
 
-        // 4 lines of accounting (basic structure, we need to handle per-product revenue centers if they differ, but we can simplify by grouping revenue by center)
-        journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(totalRevenue).creditAmount(BigDecimal.ZERO).build());
-        
+        // 4 lines of accounting (basic structure, we need to handle per-product revenue
+        // centers if they differ, but we can simplify by grouping revenue by center)
+        journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(totalRevenue)
+                .creditAmount(BigDecimal.ZERO).build());
+
         // Group revenue by center
         java.util.Map<String, BigDecimal> revenueByCenter = new java.util.HashMap<>();
         for (PosSaleItemRequest itemReq : request.getItems()) {
             Product p = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
-                .orElseGet(() -> productRepo.findByManufacturerBarcode(itemReq.getSkuOrBarcode()).orElseThrow());
+                    .orElseGet(() -> productRepo.findByManufacturerBarcode(itemReq.getSkuOrBarcode()).orElseThrow());
             String accountName = "Sales Revenue - " + p.getRevenueCenter().name();
             BigDecimal lineRev = p.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             revenueByCenter.put(accountName, revenueByCenter.getOrDefault(accountName, BigDecimal.ZERO).add(lineRev));
         }
-        
+
         for (java.util.Map.Entry<String, BigDecimal> entry : revenueByCenter.entrySet()) {
-            journalEntry.addLine(JournalLine.builder().accountName(entry.getKey()).debitAmount(BigDecimal.ZERO).creditAmount(entry.getValue()).build());
+            journalEntry.addLine(JournalLine.builder().accountName(entry.getKey()).debitAmount(BigDecimal.ZERO)
+                    .creditAmount(entry.getValue()).build());
         }
-        journalEntry.addLine(JournalLine.builder().accountName("Cost of Goods Sold").debitAmount(totalCogs).creditAmount(BigDecimal.ZERO).build());
-        journalEntry.addLine(JournalLine.builder().accountName("Inventory Asset").debitAmount(BigDecimal.ZERO).creditAmount(totalCogs).build());
+        journalEntry.addLine(JournalLine.builder().accountName("Cost of Goods Sold").debitAmount(totalCogs)
+                .creditAmount(BigDecimal.ZERO).build());
+        journalEntry.addLine(JournalLine.builder().accountName("Inventory Asset").debitAmount(BigDecimal.ZERO)
+                .creditAmount(totalCogs).build());
 
         // Validate journal balance
-        BigDecimal totalDebit = journalEntry.getLines().stream().map(JournalLine::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalCredit = journalEntry.getLines().stream().map(JournalLine::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+        BigDecimal totalDebit = journalEntry.getLines().stream().map(JournalLine::getDebitAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredit = journalEntry.getLines().stream().map(JournalLine::getCreditAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         if (totalDebit.compareTo(totalCredit) != 0) {
-            throw new UnbalancedJournalException("Journal entry is unbalanced. Debits: " + totalDebit + ", Credits: " + totalCredit);
+            throw new UnbalancedJournalException(
+                    "Journal entry is unbalanced. Debits: " + totalDebit + ", Credits: " + totalCredit);
         }
 
         journalRepo.save(journalEntry);
@@ -117,7 +147,10 @@ public class PosSaleService {
         // Transactional Outbox
         OutboxEvent event = OutboxEvent.builder()
                 .eventType("SALE_COMPLETED")
-                .payload("{\"referenceId\":\"" + saleReferenceId + "\", \"totalRevenue\":" + totalRevenue + "}") // Keep simple for now
+                .payload("{\"referenceId\":\"" + saleReferenceId + "\", \"totalRevenue\":" + totalRevenue + "}") // Keep
+                                                                                                                 // simple
+                                                                                                                 // for
+                                                                                                                 // now
                 .status(OutboxStatus.PENDING)
                 .build();
         outboxRepo.save(event);

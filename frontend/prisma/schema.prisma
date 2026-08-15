@@ -22,3 +22,48 @@ model SyncEvent {
 
   @@index([facilityId])
 }
+
+model Booking {
+  id            String   @id
+  facilityId    String
+  totalCost     Decimal  @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+
+  @@index([facilityId])
+}
+
+model JournalEntry {
+  id            String   @id
+  facilityId    String
+  entryType     String
+  referenceId   String?
+  createdAt     DateTime @default(now())
+  
+  lines         JournalLine[]
+
+  @@index([facilityId])
+}
+
+model JournalLine {
+  id              String   @id
+  journalEntryId  String
+  accountName     String
+  debitAmount     Decimal  @db.Decimal(10, 2)
+  creditAmount    Decimal  @db.Decimal(10, 2)
+
+  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([journalEntryId])
+}
+
+
+model CheckinSession {
+  sessionId       String   @id
+  facilityId      String
+  status          String
+  payload         String
+  createdAt       DateTime @default(now())
+  submittedAt     DateTime?
+
+  @@index([facilityId])
+}

@@ -15,7 +15,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sess
     const dataStr = await redis.get(redisKey);
 
     if (!dataStr) {
-      return NextResponse.json({ error: 'Session not found or expired' }, { status: 404 });
+      // Fallback to Postgres
+      const dbSession = await prisma.checkinSession.findUnique({
+        where: { sessionId }
+      });
+      
+      if (!dbSession) {
+        return NextResponse.json({ error: 'Session not found or expired' }, { status: 404 });
+      }
+
+      const data = JSON.parse(dbSession.payload);
+      return NextResponse.json(data, { status: 200 });
     }
 
     const data = JSON.parse(dataStr);
@@ -49,6 +59,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ sess
 
     await redis.set(redisKey, JSON.stringify(updatedData), 'EX', ttl > 0 ? ttl : 900);
 
+    // Durably store in Postgres
+    await prisma.checkinSession.upsert({
+      where: { sessionId },
+      update: {
+        payload: JSON.stringify(updatedData),
+        status: 'submitted',
+        submittedAt: new Date(),
+      },
+      create: {
+        sessionId,
+        facilityId: existingData.facilityId,
+        status: 'submitted',
+        payload: JSON.stringify(updatedData),
+        submittedAt: new Date(),
+      }
+    });
+
     return NextResponse.json({ message: 'Session updated successfully' }, { status: 200 });
 
   } catch (error: any) {
@@ -77,14 +104,27 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
     const redisKey = `checkin:${sessionId}`;
     const dataStr = await redis.get(redisKey);
 
+    // Verify ownership in DB if not found in Redis, though DELETE may just delete blindly if ownership is verified
     if (dataStr) {
       const data = JSON.parse(dataStr);
       if (data.facilityId !== facility.id) {
          return NextResponse.json({ error: 'Forbidden: Session belongs to another facility' }, { status: 403 });
       }
+    } else {
+      const dbSession = await prisma.checkinSession.findUnique({
+        where: { sessionId }
+      });
+      if (dbSession && dbSession.facilityId !== facility.id) {
+         return NextResponse.json({ error: 'Forbidden: Session belongs to another facility' }, { status: 403 });
+      }
     }
 
+    // Delete from both Redis and Postgres
+    await prisma.checkinSession.deleteMany({
+       where: { sessionId, facilityId: facility.id }
+    });
     await redis.del(redisKey);
+    
     return NextResponse.json({ message: 'Session deleted successfully' }, { status: 200 });
 
   } catch (error: any) {

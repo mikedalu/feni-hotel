@@ -1,5 +1,7 @@
 package com.backend.feni.service;
 
+import com.backend.feni.dto.request.PosSaleItemRequest;
+import com.backend.feni.dto.request.PosSaleRequest;
 import com.backend.feni.entity.Booking;
 import com.backend.feni.entity.JournalEntry;
 import com.backend.feni.entity.Product;
@@ -52,8 +54,8 @@ public class ReportService {
 
             case "shift-summary":
                 title = "D.S.S / S.I.D REPORT - " + date;
-                String[] dssHeaders = { "S/N", "GUEST NAME", "PHONE", "OCCUPATION", "ADDRESS", "NATIONALITY", "ARRIVAL",
-                        "DEPARTURE", "ROOM NO", "PURPOSE", "STATE", "LGA", "NOK PHONE" };
+                String[] dssHeaders = { "S/N", "GUEST NAME", "PHONE NUMBER", "OCCUPATION", "CONTACT ADDRESS", "NATIONALITY", "ARRIVAL",
+                        "DEPARTURE", "ROOM NUMBER", "PURPOSE OF VISIT", "STATE OF ORIGIN", "L.G.A", "NEXT OF KIN'S PHONE NUMBE" };
                 List<String[]> dssRows = new ArrayList<>();
                 List<Booking> dssBookings = bookingRepo.findByCreatedAtBetween(startOfDay, endOfDay);
                 int sn = 1;
@@ -75,7 +77,8 @@ public class ReportService {
                             g.getNextOfKinPhone()
                     });
                 }
-                return savePdf(pdfService.generateTablePdf(title, dssHeaders, dssRows));
+                String signatureLine = "Managers Signature________________";
+                return savePdf(pdfService.generateTablePdf(title, dssHeaders, dssRows, signatureLine));
 
             case "sales":
                 title = "DAILY SALES BOOK (ACCOMMODATION) - " + date;
@@ -148,17 +151,40 @@ public class ReportService {
                 break;
 
             case "inventory":
-                title = "Inventory Low-Stock Report";
+                title = "Inventory Report - " + date;
+                String[] invHeaders = { "S/N", "SKU", "PRODUCT", "STOCK QTY", "UNIT COST", "TOTAL VALUE", "STATUS" };
+                List<String[]> invRows = new ArrayList<>();
                 List<Product> products = productRepo.findAll();
-                content.append("Low Stock Items:\n");
+                
+                int invSn = 1;
+                BigDecimal totalInventoryValue = BigDecimal.ZERO;
+                
                 for (Product p : products) {
-                    if (p.getStockQty() != null && p.getLowStockThreshold() != null
-                            && p.getStockQty() <= p.getLowStockThreshold()) {
-                        content.append(p.getName()).append(" (SKU: ").append(p.getInternalSku())
-                                .append(") - Current Stock: ").append(p.getStockQty()).append("\n");
+                    if (p.getType() == com.backend.feni.entity.enums.ProductType.RAW_GOOD) {
+                        String status = "OK";
+                        if (p.getStockQty() != null && p.getLowStockThreshold() != null && p.getStockQty() <= p.getLowStockThreshold()) {
+                            status = "LOW STOCK";
+                        }
+                        
+                        BigDecimal qty = p.getStockQty() != null ? BigDecimal.valueOf(p.getStockQty()) : BigDecimal.ZERO;
+                        BigDecimal totalValue = p.getUnitCost().multiply(qty);
+                        totalInventoryValue = totalInventoryValue.add(totalValue);
+                        
+                        invRows.add(new String[] {
+                                String.valueOf(invSn++),
+                                p.getInternalSku(),
+                                p.getName(),
+                                String.valueOf(p.getStockQty()),
+                                p.getUnitCost().toString(),
+                                totalValue.toString(),
+                                status
+                        });
                     }
                 }
-                break;
+                
+                invRows.add(new String[] { "", "", "TOTAL VALUATION", "", "", totalInventoryValue.toString(), "" });
+                return savePdf(pdfService.generateTablePdf(title, invHeaders, invRows));
+
 
             case "staff-activity":
                 title = "Staff Activity Report";
@@ -187,5 +213,90 @@ public class ReportService {
 
         // Return the URL to download it locally
         return "/api/reports/download/" + filename;
+    }
+
+    public String generatePosInvoice(PosSaleRequest request) {
+        String title = "INVOICE - FENI HOTEL";
+        String[] headers = { "S/N", "ITEM", "QTY", "UNIT PRICE", "TOTAL" };
+        List<String[]> rows = new ArrayList<>();
+        
+        int sn = 1;
+        BigDecimal grandTotal = BigDecimal.ZERO;
+        
+        for (PosSaleItemRequest itemReq : request.getItems()) {
+            Product product = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
+                    .orElseGet(() -> productRepo.findByManufacturerBarcode(itemReq.getSkuOrBarcode())
+                            .orElseThrow(() -> new IllegalArgumentException("Product not found: " + itemReq.getSkuOrBarcode())));
+            
+            BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            grandTotal = grandTotal.add(lineTotal);
+            
+            rows.add(new String[] {
+                    String.valueOf(sn++),
+                    product.getName(),
+                    String.valueOf(itemReq.getQuantity()),
+                    "$" + product.getPrice().toString(),
+                    "$" + lineTotal.toString()
+            });
+        }
+        
+        rows.add(new String[] { "", "", "", "GRAND TOTAL", "$" + grandTotal.toString() });
+        
+        return savePdf(pdfService.generateTablePdf(title, headers, rows));
+    }
+
+    public String generateBookingInvoice(UUID bookingId) {
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
+        
+        String title = "BOOKING INVOICE - FENI HOTEL";
+        StringBuilder content = new StringBuilder();
+        content.append("Guest Name: ").append(booking.getGuest().getFirstName()).append(" ").append(booking.getGuest().getLastName()).append("\n");
+        content.append("Room Number: ").append(booking.getRoomNumber()).append("\n");
+        content.append("Room Type: ").append(booking.getRoomType()).append("\n");
+        content.append("Check-in Date: ").append(booking.getCheckInDate()).append("\n");
+        content.append("Check-out Date: ").append(booking.getCheckOutDate()).append("\n");
+        content.append("Payment Method: ").append(booking.getPaymentMethod()).append("\n");
+        content.append("----------------------------\n");
+        content.append("Total Cost: $").append(booking.getTotalCost()).append("\n");
+        
+        byte[] pdfBytes = pdfService.generateSimpleTextPdf(title, content.toString());
+        return savePdf(pdfBytes);
+    }
+
+    public byte[] generateMonthlyPnlBytes(int year, int month) {
+        LocalDate startOfMonth = LocalDate.of(year, month, 1);
+        LocalDate endOfMonth = startOfMonth.plusMonths(1).minusDays(1);
+        Instant start = startOfMonth.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant end = endOfMonth.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
+        String title = "Monthly Profit & Loss Statement - " + startOfMonth.getMonth() + " " + year;
+        
+        List<com.backend.feni.entity.JournalLine> revLines = journalLineRepo.findByAccountNameStartingWithAndDateBetween("Sales Revenue -", start, end);
+        List<com.backend.feni.entity.JournalLine> cogsLines = journalLineRepo.findByAccountNameStartingWithAndDateBetween("Cost of Goods Sold", start, end);
+
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        for (com.backend.feni.entity.JournalLine jl : revLines) {
+            totalRevenue = totalRevenue.add(jl.getCreditAmount());
+        }
+
+        BigDecimal totalCogs = BigDecimal.ZERO;
+        for (com.backend.feni.entity.JournalLine jl : cogsLines) {
+            totalCogs = totalCogs.add(jl.getDebitAmount());
+        }
+
+        BigDecimal grossProfit = totalRevenue.subtract(totalCogs);
+
+        StringBuilder content = new StringBuilder();
+        content.append("Statement Period: ").append(startOfMonth).append(" to ").append(endOfMonth).append("\n\n");
+        content.append("REVENUE\n");
+        content.append("Total Sales Revenue: $").append(totalRevenue).append("\n\n");
+        content.append("COST OF GOODS SOLD\n");
+        content.append("Total COGS: $").append(totalCogs).append("\n\n");
+        content.append("----------------------------------------\n");
+        content.append("GROSS PROFIT: $").append(grossProfit).append("\n");
+        content.append("========================================\n");
+
+        return pdfService.generateSimpleTextPdf(title, content.toString());
     }
 }

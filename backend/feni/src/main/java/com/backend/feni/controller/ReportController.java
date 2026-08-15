@@ -1,7 +1,9 @@
 package com.backend.feni.controller;
 
+import com.backend.feni.dto.request.PosSaleRequest;
 import com.backend.feni.dto.response.ReportResponse;
 import com.backend.feni.service.ReportService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -33,7 +36,19 @@ public class ReportController {
         return new ReportResponse(url);
     }
 
-    @GetMapping("/download/{filename}")
+    @PostMapping("/pos-invoice/generate")
+    public ReportResponse generatePosInvoice(@RequestBody @Valid PosSaleRequest request) {
+        String url = reportService.generatePosInvoice(request);
+        return new ReportResponse(url);
+    }
+
+    @PostMapping("/booking-invoice/{bookingId}/generate")
+    public ReportResponse generateBookingInvoice(@PathVariable UUID bookingId) {
+        String url = reportService.generateBookingInvoice(bookingId);
+        return new ReportResponse(url);
+    }
+
+    @GetMapping("/download/{filename:.+}")
     public ResponseEntity<Resource> downloadReport(@PathVariable String filename) {
         File file = new File(System.getProperty("java.io.tmpdir"), filename);
         if (!file.exists()) {

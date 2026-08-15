@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCheckinPolling } from '@/hooks/useCheckinPolling';
-import { QrCodeIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { QrCodeIcon, CheckCircleIcon, ArrowPathIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
+import { apiClient } from '@/lib/apiClient';
 
 // Mock token for API (since auth wasn't fully built into the frontend yet)
 // We would usually get this from context or local storage
@@ -15,18 +16,25 @@ export default function ReceptionCheckinPage() {
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const [recoverableSessions, setRecoverableSessions] = useState<any[]>([]);
+  const [recovering, setRecovering] = useState(false);
+  const [mockSessionData, setMockSessionData] = useState<any>(null);
 
-  const { data: sessionData, error: pollError } = useCheckinPolling(sessionId);
+  // If we recovered a session, we bypass polling and just use the mockSessionData
+  const pollingData = useCheckinPolling(mockSessionData ? null : sessionId);
+  const sessionData = mockSessionData || pollingData.data;
+  const pollError = mockSessionData ? null : pollingData.error;
 
   const startSession = async () => {
     setLoading(true);
+    setLoading(true);
     setError(null);
+    setMockSessionData(null);
+    setRecoverableSessions([]);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/checkin/self-checkin/start`, {
+      const res = await apiClient('/api/proxy/checkin/self-checkin/start', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${MOCK_JWT}`,
-        },
       });
       if (!res.ok) throw new Error('Failed to start session on local backend');
       const data = await res.json();
@@ -72,11 +80,10 @@ export default function ReceptionCheckinPage() {
     };
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/checkin/confirm/${sessionId}`, {
+      const res = await apiClient(`/api/proxy/checkin/confirm/${sessionId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${MOCK_JWT}`,
         },
         body: JSON.stringify(confirmPayload),
       });
@@ -88,6 +95,24 @@ export default function ReceptionCheckinPage() {
       setError(err.message);
     } finally {
       setConfirming(false);
+    }
+  };
+
+  const fetchRecoverableSessions = async () => {
+    setRecovering(true);
+    setError(null);
+    try {
+      const res = await apiClient('/api/proxy/checkin/recover');
+      if (!res.ok) throw new Error('Failed to fetch recoverable sessions');
+      const data = await res.json();
+      setRecoverableSessions(data);
+      if (data.length === 0) {
+        setError('No stranded sessions found.');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setRecovering(false);
     }
   };
 
@@ -103,18 +128,28 @@ export default function ReceptionCheckinPage() {
             <p className="text-gray-500 text-sm">Generate QR codes for guests and monitor submissions in real-time.</p>
           </div>
           {!sessionId && !confirmed && (
-            <button
-              onClick={startSession}
-              disabled={loading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium shadow transition-colors flex items-center gap-2"
-            >
-              {loading ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <QrCodeIcon className="h-5 w-5" />}
-              Start New Session
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={fetchRecoverableSessions}
+                disabled={recovering}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-3 rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2"
+              >
+                {recovering ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <CloudArrowDownIcon className="h-5 w-5" />}
+                Recover Sessions
+              </button>
+              <button
+                onClick={startSession}
+                disabled={loading}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium shadow transition-colors flex items-center gap-2"
+              >
+                {loading ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <QrCodeIcon className="h-5 w-5" />}
+                Start New Session
+              </button>
+            </div>
           )}
           {sessionId && (
             <button
-              onClick={() => { setSessionId(null); setConfirmed(false); }}
+              onClick={() => { setSessionId(null); setConfirmed(false); setMockSessionData(null); }}
               className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
             >
               Cancel Session
@@ -133,6 +168,39 @@ export default function ReceptionCheckinPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl">
             {error}
+          </div>
+        )}
+
+        {!sessionId && !confirmed && recoverableSessions.length > 0 && (
+          <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-900">Recoverable Sessions</h2>
+              <span className="text-sm text-gray-500">{recoverableSessions.length} stranded session(s) found</span>
+            </div>
+            <ul className="divide-y divide-gray-200">
+              {recoverableSessions.map((session, idx) => (
+                <li key={session.sessionId || idx} className="p-6 flex items-center justify-between hover:bg-gray-50">
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {session.data.guestFirstName} {session.data.guestLastName}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {session.data.guestEmail} • Submitted at {new Date(session.submittedAt).toLocaleTimeString()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSessionId(session.sessionId);
+                      setMockSessionData(session.data);
+                      setRecoverableSessions([]);
+                    }}
+                    className="text-indigo-600 font-semibold hover:text-indigo-900 px-4 py-2 bg-indigo-50 rounded-lg"
+                  >
+                    Recover
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

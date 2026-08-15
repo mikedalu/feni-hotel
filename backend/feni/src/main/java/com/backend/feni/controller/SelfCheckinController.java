@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,5 +36,10 @@ public class SelfCheckinController {
         
         UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
         selfCheckinService.confirmCheckin(sessionId, request, staffId);
+    }
+
+    @GetMapping("/recover")
+    public List<Map<String, Object>> getRecoverableSessions() {
+        return selfCheckinService.getRecoverableSessions();
     }
 }

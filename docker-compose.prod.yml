@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: feni-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-feni_hotel}
+      POSTGRES_USER: ${POSTGRES_USER:-feni_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-feni_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    image: ${REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}-backend:latest
+    container_name: feni-backend
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-feni_hotel}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-feni_user}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-feni_password}
+      - SPRING_PROFILES_ACTIVE=prod
+      # Add production JWT signing key and other secrets via .env file on the server
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  frontend:
+    image: ${REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}-frontend:latest
+    container_name: feni-frontend
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

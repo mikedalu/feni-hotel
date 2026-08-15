@@ -61,4 +61,8 @@ public class BookingRequest {
     private String purposeOfVisit;
     private String arrivingFrom;
     private String goingTo;
+
+    private String overrideReason;
+
+    private String printerIp;
 }

@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import com.backend.feni.entity.enums.PaymentMethod;
+import com.backend.feni.entity.enums.BookingStatus;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -53,6 +54,14 @@ public class Booking {
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalCost;
+
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(255) default 'CHECKED_IN'")
+    @Builder.Default
+    private BookingStatus status = BookingStatus.CHECKED_IN;
+
+    @Column(columnDefinition = "text")
+    private String priceOverrideReason;
 
     @CreationTimestamp
     @Column(updatable = false)

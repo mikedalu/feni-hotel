@@ -49,9 +49,48 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // TODO: Here we will add a switch (event.eventType) to fan out the payload 
-      // and construct the full cloud database replicas (Sales, Bookings, JournalEntries).
-      // For now, storing it in SyncEvent is enough to ensure idempotency and acknowledge receipt.
+      // Fan out logic
+      const payloadObj = JSON.parse(event.payload);
+
+      switch (event.eventType) {
+        case 'BOOKING_CREATED':
+          if (payloadObj.booking) {
+            await prisma.booking.upsert({
+              where: { id: payloadObj.booking.id },
+              update: { totalCost: payloadObj.booking.totalCost },
+              create: {
+                id: payloadObj.booking.id,
+                facilityId: facility.id,
+                totalCost: payloadObj.booking.totalCost,
+              },
+            });
+          }
+          // fall through to process potential journal entry for booking
+        case 'SALE_COMPLETED':
+        case 'INVENTORY_RECEIVED':
+          if (payloadObj.journalEntry) {
+            const entry = payloadObj.journalEntry;
+            await prisma.journalEntry.upsert({
+              where: { id: entry.id },
+              update: {}, // No updates needed for immutable ledger entries
+              create: {
+                id: entry.id,
+                facilityId: facility.id,
+                entryType: entry.entryType,
+                referenceId: entry.referenceId,
+                lines: {
+                  create: entry.lines.map((line: any) => ({
+                    id: line.id,
+                    accountName: line.accountName,
+                    debitAmount: line.debitAmount,
+                    creditAmount: line.creditAmount,
+                  })),
+                },
+              },
+            });
+          }
+          break;
+      }
 
       processedIds.push(event.id);
     }

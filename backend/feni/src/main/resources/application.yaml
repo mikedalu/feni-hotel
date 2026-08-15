@@ -23,7 +23,7 @@ spring:
           
 cloud:
   sync:
-    url: "http://localhost:3000/api/sync/events"
+    url: "http://localhost:3001/api/sync/events"
     api-key: "default-dev-key"
     polling-delay: 5000
 

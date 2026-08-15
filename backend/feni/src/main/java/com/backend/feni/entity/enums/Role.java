@@ -4,5 +4,6 @@ public enum Role {
     ADMIN,
     INVENTORY_MANAGER,
     FRONT_DESK,
-    BARTENDER
+    BARTENDER,
+    HOUSEKEEPER
 }

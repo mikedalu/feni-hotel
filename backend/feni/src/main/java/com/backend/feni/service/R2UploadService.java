@@ -89,4 +89,25 @@ public class R2UploadService {
             return CompletableFuture.completedFuture(null);
         }
     }
+
+    public String uploadReportPdf(byte[] pdfBytes, UUID facilityId, String reportName) {
+        try {
+            String objectKey = "reports/" + facilityId.toString() + "/" + reportName + ".pdf";
+
+            PutObjectRequest putOb = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(objectKey)
+                    .contentType("application/pdf")
+                    .build();
+
+            log.info("Uploading report PDF to R2: {}", objectKey);
+            s3Client.putObject(putOb, RequestBody.fromBytes(pdfBytes));
+            
+            String fullUrl = publicUrl.endsWith("/") ? publicUrl + objectKey : publicUrl + "/" + objectKey;
+            return fullUrl;
+        } catch (Exception e) {
+            log.error("Failed to upload report PDF to R2", e);
+            throw new RuntimeException("Failed to upload report to cloud storage", e);
+        }
+    }
 }

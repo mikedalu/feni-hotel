@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
-
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,11 +34,15 @@ public class SelfCheckinService {
         this.bookingService = bookingService;
         this.r2UploadService = r2UploadService;
         this.facilityRepo = facilityRepo;
-        this.restClient = RestClient.create();
+        this.restClient = RestClient.builder().build();
     }
 
     private String getCloudCheckinUrl() {
         return cloudSyncUrl.replace("/sync/events", "/checkin/session");
+    }
+
+    private String getCloudRecoverUrl() {
+        return cloudSyncUrl.replace("/sync/events", "/checkin/recover");
     }
 
     public String startSession(UUID staffId) {
@@ -87,6 +91,21 @@ public class SelfCheckinService {
             log.info("Cleared Cloud Clipboard session: {}", sessionId);
         } catch (Exception e) {
             log.error("Failed to delete Cloud Clipboard session after confirm. It will expire naturally.", e);
+        }
+    }
+
+    public List<Map<String, Object>> getRecoverableSessions() {
+        try {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> sessions = restClient.get()
+                    .uri(getCloudRecoverUrl())
+                    .header("x-facility-api-key", cloudApiKey)
+                    .retrieve()
+                    .body(List.class);
+            return sessions;
+        } catch (Exception e) {
+            log.error("Error communicating with Cloud API to recover sessions", e);
+            throw new RuntimeException("Could not recover sessions", e);
         }
     }
 }

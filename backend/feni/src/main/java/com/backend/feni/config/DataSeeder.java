@@ -2,9 +2,14 @@ package com.backend.feni.config;
 
 import com.backend.feni.entity.Facility;
 import com.backend.feni.entity.StaffUser;
+import com.backend.feni.entity.Product;
 import com.backend.feni.entity.enums.Role;
+import com.backend.feni.entity.enums.ProductType;
+import com.backend.feni.entity.enums.RevenueCenter;
 import com.backend.feni.repository.FacilityRepository;
 import com.backend.feni.repository.StaffUserRepository;
+import com.backend.feni.repository.ProductRepository;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +27,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private final FacilityRepository facilityRepo;
     private final StaffUserRepository staffUserRepo;
+    private final ProductRepository productRepo;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${bootstrap.facility.name}")
@@ -40,6 +46,7 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
         seedFacility();
         seedAdmin();
+        seedProducts();
     }
 
     private void seedFacility() {
@@ -89,5 +96,22 @@ public class DataSeeder implements CommandLineRunner {
         byte[] bytes = new byte[18]; // 144 bits, comfortably strong
         random.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private void seedProducts() {
+        if (productRepo.count() > 0) {
+            return;
+        }
+
+        productRepo.save(Product.builder().name("Starbeer Bottle").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B001").price(new BigDecimal("1500")).unitCost(new BigDecimal("1000")).stockQty(45).build());
+        productRepo.save(Product.builder().name("Guinness Stout").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B002").price(new BigDecimal("2000")).unitCost(new BigDecimal("1200")).stockQty(32).build());
+        productRepo.save(Product.builder().name("Jollof Rice & Chicken").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K001").price(new BigDecimal("4500")).unitCost(new BigDecimal("2500")).build());
+        productRepo.save(Product.builder().name("Egusi Soup & Pounded Yam").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K002").price(new BigDecimal("5000")).unitCost(new BigDecimal("3000")).build());
+        productRepo.save(Product.builder().name("Plantain (Extra)").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K003").price(new BigDecimal("1000")).unitCost(new BigDecimal("400")).build());
+        productRepo.save(Product.builder().name("Water (Bottle)").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B003").price(new BigDecimal("500")).unitCost(new BigDecimal("200")).stockQty(105).build());
+        productRepo.save(Product.builder().name("Red Bull").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B004").price(new BigDecimal("2500")).unitCost(new BigDecimal("1500")).stockQty(5).build());
+        productRepo.save(Product.builder().name("Grilled Fish").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K004").price(new BigDecimal("8000")).unitCost(new BigDecimal("5000")).build());
+
+        log.info("Seeded mock products.");
     }
 }
