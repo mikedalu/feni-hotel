@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
-const withPWA = require("next-pwa")({
+// @ts-expect-error: next-pwa missing type definitions
+import nextPWA from "next-pwa";
+
+const withPWA = nextPWA({
   dest: "public",
   disable: process.env.NODE_ENV === 'development', // Disabled in dev to stop infinite reload loops
   register: true,

@@ -17,8 +17,12 @@ export default function ResetPasswordModal({ user, onClose, onSubmit, isSubmitti
     setError(null);
     try {
       await onSubmit(user.id, password);
-    } catch (err: any) {
-      setError(err.message || 'Failed to reset password');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to reset password');
+      }
     }
   };
 

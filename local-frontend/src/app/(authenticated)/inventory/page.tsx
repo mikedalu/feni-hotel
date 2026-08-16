@@ -23,8 +23,12 @@ export default function InventoryPage() {
       if (!res.ok) throw new Error('Failed to load products');
       const data = await res.json();
       setProducts(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to load products');
+      }
     } finally {
       setLoading(false);
     }
@@ -49,6 +53,7 @@ export default function InventoryPage() {
   
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProducts();
   }, []);
 
@@ -89,8 +94,12 @@ export default function InventoryPage() {
       alert('Inventory intake completed successfully');
       setCart([]);
       fetchProducts(); // Refresh stock quantities
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('An error occurred');
+      }
     }
   };
 
@@ -120,9 +129,12 @@ export default function InventoryPage() {
       a.remove();
       window.URL.revokeObjectURL(objectUrl);
       
-    } catch (err: any) {
-      console.log(err, "Error downloading pdf")
-      alert(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('An error occurred');
+      }
     }
   };
 

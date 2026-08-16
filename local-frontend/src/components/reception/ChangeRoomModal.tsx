@@ -24,7 +24,7 @@ export default function ChangeRoomModal({ booking, onClose, onSubmit, isSubmitti
       const res = await apiClient('/api/proxy/rooms');
       if (!res.ok) throw new Error('Failed to fetch rooms');
       const data = await res.json();
-      return data.filter((room: any) => room.active);
+      return data.filter((room: RoomResponse) => room.active);
     }
   });
 
@@ -47,8 +47,12 @@ export default function ChangeRoomModal({ booking, onClose, onSubmit, isSubmitti
         newTotalCost,
         paymentMethod,
       });
-    } catch (err: any) {
-      setError(err.message || 'Failed to change room');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to change room');
+      }
     }
   };
 

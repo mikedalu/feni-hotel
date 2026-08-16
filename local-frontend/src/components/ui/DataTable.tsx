@@ -59,7 +59,7 @@ export function DataTable<TData, TValue>({
 
   const downloadCSV = () => {
     const exportableColumns = table.getAllColumns().filter(
-      column => (column.columnDef.meta as any)?.exportValue || column.getCanSort()
+      column => (column.columnDef.meta as Record<string, unknown>)?.exportValue || column.getCanSort()
     )
 
     const csvHeaders = exportableColumns
@@ -72,8 +72,9 @@ export function DataTable<TData, TValue>({
     const csvRows = table.getSortedRowModel().rows.map(row => {
       return exportableColumns.map(column => {
         let val = ''
-        if ((column.columnDef.meta as any)?.exportValue) {
-          val = (column.columnDef.meta as any).exportValue(row.original)
+        const meta = column.columnDef.meta as Record<string, unknown>;
+        if (meta?.exportValue) {
+          val = (meta.exportValue as (row: TData) => string)(row.original)
         } else {
           val = String(row.getValue(column.id) ?? '')
         }
@@ -128,7 +129,7 @@ export function DataTable<TData, TValue>({
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} className={(header.column.columnDef.meta as any)?.headerClassName || ''}>
+                    <TableHead key={header.id} className={((header.column.columnDef.meta as Record<string, unknown>)?.headerClassName as string) || ''}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -159,7 +160,7 @@ export function DataTable<TData, TValue>({
                   className="hover:bg-gray-50/50"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className={(cell.column.columnDef.meta as any)?.className || ''}>
+                    <TableCell key={cell.id} className={((cell.column.columnDef.meta as Record<string, unknown>)?.className as string) || ''}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

@@ -79,13 +79,13 @@ jobs:
 
   deploy-to-facility:
     needs: [build-and-push-backend, build-and-push-frontend]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Trigger Facility Server Webhook
         run: |
           curl -X POST -H "Authorization: Bearer ${{ secrets.FACILITY_WEBHOOK_SECRET }}" \
           -H "Content-Type: application/json" \
           -d '{"action":"deploy", "backend_image":"${{ env.REGISTRY }}/${{ github.repository }}-backend:latest", "frontend_image":"${{ env.REGISTRY }}/${{ github.repository }}-frontend:latest"}' \
-          https://facility.hotel.com/api/webhooks/deploy
+          https://hotel-hub.local/api/webhooks/deploy
           
-          # NOTE: The facility.hotel.com domain is mocked for now as per the implementation plan.
+          # NOTE: The hotel-hub.local domain is used for the self-hosted runner on the facility server.

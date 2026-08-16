@@ -42,8 +42,12 @@ export default function LoginPage() {
       } else {
         router.push("/"); // Default landing page
       }
-    } catch (err: any) {
-      setError(err.message || "An error occurred during login");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An error occurred during login");
+      }
     } finally {
       setIsLoading(false);
     }

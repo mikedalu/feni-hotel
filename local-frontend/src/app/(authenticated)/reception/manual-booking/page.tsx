@@ -20,34 +20,35 @@ export default function ManualBookingPage() {
       const res = await apiClient('/api/proxy/rooms');
       if (!res.ok) throw new Error('Failed to fetch rooms');
       const data = await res.json();
-      return data.filter((room: any) => room.active);
+      return data.filter((room: RoomResponse) => room.active);
     }
   });
 
   const availableRooms = rooms.filter(r => r.status === 'AVAILABLE');
   const availableRoomTypes = Array.from(new Set(availableRooms.map(r => r.roomType)));
 
-  const [formData, setFormData] = useState<BookingRequest>({
-    guestFirstName: '',
-    guestLastName: '',
-    guestEmail: '',
-    guestPhone: '',
-    checkInDate: new Date().toISOString().split('T')[0],
-    checkOutDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    roomNumber: '',
-    roomType: 'Standard',
-    checkInTime: '14:00',
-    paymentMethod: 'CASH',
-    totalCost: 0,
-    printerIp: '',
+  const [formData, setFormData] = useState<BookingRequest>(() => {
+    let printerIp = '';
+    if (typeof window !== 'undefined') {
+      printerIp = localStorage.getItem('feni_printer_ip') || '';
+    }
+    return {
+      guestFirstName: '',
+      guestLastName: '',
+      guestEmail: '',
+      guestPhone: '',
+      checkInDate: new Date().toISOString().split('T')[0],
+      checkOutDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+      roomNumber: '',
+      roomType: 'Standard',
+      checkInTime: '14:00',
+      paymentMethod: 'CASH',
+      totalCost: 0,
+      printerIp,
+    };
   });
 
-  React.useEffect(() => {
-    const savedPrinterIp = localStorage.getItem('feni_printer_ip');
-    if (savedPrinterIp) {
-      setFormData(prev => ({ ...prev, printerIp: savedPrinterIp }));
-    }
-  }, []);
+  // removed useEffect for printerIp
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -62,29 +63,31 @@ export default function ManualBookingPage() {
       localStorage.setItem('feni_printer_ip', value);
     }
 
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'totalCost' ? parseFloat(value) : value,
-    }));
+    setFormData(prev => {
+      const nextState = {
+        ...prev,
+        [name]: name === 'totalCost' ? parseFloat(value) || 0 : value,
+      };
+      
+      // Auto-calculate cost when relevant fields change
+      if (name === 'roomNumber' || name === 'checkInDate' || name === 'checkOutDate') {
+        const room = rooms.find(r => r.roomNumber === nextState.roomNumber);
+        if (room && room.currentPrice) {
+          const inDate = new Date(nextState.checkInDate);
+          const outDate = new Date(nextState.checkOutDate);
+          const diffTime = Math.abs(outDate.getTime() - inDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const nights = diffDays > 0 ? diffDays : 1;
+          const autoCost = room.currentPrice * nights;
+          setSystemCalculatedCost(autoCost);
+          nextState.totalCost = autoCost;
+        }
+      }
+      return nextState;
+    });
   };
 
-  React.useEffect(() => {
-    if (formData.roomNumber && formData.checkInDate && formData.checkOutDate) {
-      const room = rooms.find(r => r.roomNumber === formData.roomNumber);
-      if (room && room.currentPrice) {
-        const inDate = new Date(formData.checkInDate);
-        const outDate = new Date(formData.checkOutDate);
-        const diffTime = Math.abs(outDate.getTime() - inDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const nights = diffDays > 0 ? diffDays : 1;
-        const autoCost = room.currentPrice * nights;
-        setSystemCalculatedCost(autoCost);
-        // Automatically update the totalCost unless user previously overrode it.
-        // To be safe, we just update it if they are switching rooms/dates
-        setFormData(prev => ({ ...prev, totalCost: autoCost }));
-      }
-    }
-  }, [formData.roomNumber, formData.checkInDate, formData.checkOutDate, rooms]);
+  // removed useEffect for cost calculation
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,11 +119,13 @@ export default function ManualBookingPage() {
       }
 
       router.push('/reception'); // Redirect to dashboard on success
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (Array.isArray(err)) {
         setError(err);
+      } else if (err instanceof Error) {
+        setError(err.message);
       } else {
-        setError(err.message || 'An unexpected error occurred');
+        setError('An unexpected error occurred');
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {

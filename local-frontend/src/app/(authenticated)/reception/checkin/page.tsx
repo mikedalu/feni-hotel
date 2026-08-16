@@ -6,9 +6,19 @@ import { useCheckinPolling } from '@/hooks/useCheckinPolling';
 import { QrCodeIcon, CheckCircleIcon, ArrowPathIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
 import { apiClient } from '@/lib/apiClient';
 
-// Mock token for API (since auth wasn't fully built into the frontend yet)
+interface RecoverableSession {
+  sessionId: string;
+  submittedAt: string;
+  data: {
+    guestFirstName: string;
+    guestLastName: string;
+    guestEmail: string;
+    [key: string]: unknown;
+  };
+}
+
+
 // We would usually get this from context or local storage
-const MOCK_JWT = "mock_jwt_token";
 
 export default function ReceptionCheckinPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -17,14 +27,14 @@ export default function ReceptionCheckinPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [recoverableSessions, setRecoverableSessions] = useState<any[]>([]);
+  const [recoverableSessions, setRecoverableSessions] = useState<RecoverableSession[]>([]);
   const [recovering, setRecovering] = useState(false);
-  const [mockSessionData, setMockSessionData] = useState<any>(null);
+  const [mockSessionData, setMockSessionData] = useState<RecoverableSession['data'] | null>(null);
 
   // If we recovered a session, we bypass polling and just use the mockSessionData
   const pollingData = useCheckinPolling(mockSessionData ? null : sessionId);
   const sessionData = mockSessionData || pollingData.data;
-  const pollError = mockSessionData ? null : pollingData.error;
+  // const pollError = mockSessionData ? null : pollingData.error;
 
   const startSession = async () => {
     setLoading(true);
@@ -39,8 +49,12 @@ export default function ReceptionCheckinPage() {
       if (!res.ok) throw new Error('Failed to start session on local backend');
       const data = await res.json();
       setSessionId(data.sessionId);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An error occurred');
+      }
     } finally {
       setLoading(false);
     }
@@ -91,8 +105,12 @@ export default function ReceptionCheckinPage() {
       if (!res.ok) throw new Error('Failed to confirm check-in on backend');
       setConfirmed(true);
       setSessionId(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An error occurred');
+      }
     } finally {
       setConfirming(false);
     }
@@ -109,8 +127,12 @@ export default function ReceptionCheckinPage() {
       if (data.length === 0) {
         setError('No stranded sessions found.');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An error occurred');
+      }
     } finally {
       setRecovering(false);
     }
@@ -208,7 +230,7 @@ export default function ReceptionCheckinPage() {
           <div className="bg-green-50 border border-green-200 p-12 rounded-2xl text-center space-y-4">
             <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto" />
             <h2 className="text-2xl font-bold text-green-800">Check-in Confirmed!</h2>
-            <p className="text-green-600">The guest's details have been saved, journal entry posted, and the ID is uploading to the cloud.</p>
+            <p className="text-green-600">The guest&apos;s details have been saved, journal entry posted, and the ID is uploading to the cloud.</p>
           </div>
         )}
 

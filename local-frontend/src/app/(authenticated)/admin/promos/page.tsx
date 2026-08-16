@@ -28,14 +28,14 @@ interface PromoResponse {
 
 export default function AdminPromosSetup() {
   const queryClient = useQueryClient();
-  const [newPromo, setNewPromo] = useState<PromoRequest>({
+  const [newPromo, setNewPromo] = useState<PromoRequest>(() => ({
     name: '',
     discountPercentage: 10,
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0], // 7 days from now
     targetRoomType: 'ALL',
     active: true,
-  });
+  }));
   const [error, setError] = useState<string | null>(null);
 
   const { data: promos = [], isLoading } = useQuery<PromoResponse[]>({
@@ -78,8 +78,12 @@ export default function AdminPromosSetup() {
       });
       setError(null);
     },
-    onError: (err: any) => {
-      setError(err.message);
+    onError: (err: unknown) => {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An error occurred');
+      }
     }
   });
 

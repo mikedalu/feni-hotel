@@ -43,8 +43,12 @@ export default function AdminRoomsSetup() {
       setNewRoom({ roomNumber: '', roomType: 'Standard', basePrice: 0 });
       setError(null);
     },
-    onError: (err: any) => {
-      setError(err.message);
+    onError: (err: unknown) => {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to create room');
+      }
     }
   });
 
@@ -69,7 +73,13 @@ export default function AdminRoomsSetup() {
       setEditingRoom(null);
       setEditError(null);
     },
-    onError: (err: any) => setEditError(err.message)
+    onError: (err: unknown) => {
+      if (err instanceof Error) {
+        setEditError(err.message);
+      } else {
+        setEditError('Failed to update room');
+      }
+    }
   });
 
   const toggleActiveMutation = useMutation({

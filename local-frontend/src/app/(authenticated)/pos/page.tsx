@@ -21,7 +21,7 @@ export default function POSPage() {
       const data = await res.json();
       
       // Map revenueCenter to category for UI
-      return data.map((p: any) => ({
+      return data.map((p: Product & { revenueCenter: string }) => ({
         ...p,
         category: p.revenueCenter === "BAR" ? "Drinks" : p.revenueCenter === "KITCHEN" ? "Kitchen" : "Other"
       }));

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "deploy",
+    "execute-command": "/home/agent-mike/Documents/feni-hotel/deploy/deploy.sh",
+    "command-working-directory": "/home/agent-mike/Documents/feni-hotel/deploy",
+    "trigger-rule": {
+      "match": {
+        "type": "value",
+        "value": "Bearer my-super-secret-key",
+        "parameter": {
+          "source": "header",
+          "name": "Authorization"
+        }
+      }
+    }
+  }
+]

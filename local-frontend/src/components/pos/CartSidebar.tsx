@@ -21,12 +21,12 @@ export default function CartSidebar({
   isProcessing
 }: CartSidebarProps) {
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "POS" | "TRANSFER">("CASH");
-  const [printerIp, setPrinterIp] = useState<string>("");
-
-  useEffect(() => {
-    const saved = localStorage.getItem("feni_pos_printer_ip");
-    if (saved) setPrinterIp(saved);
-  }, []);
+  const [printerIp, setPrinterIp] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("feni_pos_printer_ip") || "";
+    }
+    return "";
+  });
 
   const handlePrinterIpChange = (val: string) => {
     setPrinterIp(val);

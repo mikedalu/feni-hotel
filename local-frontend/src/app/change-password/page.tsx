@@ -45,8 +45,12 @@ export default function ChangePasswordPage() {
       // Password changed successfully, user must login again (or we can just redirect if we have a valid token)
       alert("Password changed successfully! You will now be redirected.");
       router.push("/pos");
-    } catch (err: any) {
-      setError(err.message || "An error occurred");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An error occurred");
+      }
     } finally {
       setIsLoading(false);
     }

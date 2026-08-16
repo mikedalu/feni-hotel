@@ -34,14 +34,19 @@ export default function ProductsPage() {
       if (!res.ok) throw new Error('Failed to load products');
       const data = await res.json();
       setProducts(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to load products');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProducts();
   }, []);
 
@@ -83,8 +88,12 @@ export default function ProductsPage() {
       
       setIsModalOpen(false);
       fetchProducts();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('An error occurred');
+      }
     }
   };
 

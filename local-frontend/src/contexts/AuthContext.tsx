@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { setToken } from "@/lib/apiClient";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export interface User {
   username: string;
@@ -22,18 +22,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const IDLE_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("feni_user");
+      return stored ? JSON.parse(stored) : null;
+    }
+    return null;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   // Load state from sessionStorage on mount
   useEffect(() => {
-    const storedUser = sessionStorage.getItem("feni_user");
-    const storedToken = sessionStorage.getItem("feni_token");
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken); // Rehydrate apiClient token
+    if (typeof window !== "undefined") {
+      const storedToken = sessionStorage.getItem("feni_token");
+      if (storedToken) {
+        setToken(storedToken); // Rehydrate apiClient token
+      }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(false);
   }, []);
 
@@ -76,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeoutId);
       events.forEach(event => document.removeEventListener(event, resetTimer));
     };
-  }, [user, router]); // Re-run if user changes
+  }, [user, router, logout]); // Re-run if user changes
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, logout }}>

@@ -18,8 +18,12 @@ export default function CreateStaffModal({ onClose, onSubmit, isSubmitting }: Cr
     setError(null);
     try {
       await onSubmit({ username, password, role });
-    } catch (err: any) {
-      setError(err.message || 'Failed to create staff user');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to create staff user');
+      }
     }
   };
 

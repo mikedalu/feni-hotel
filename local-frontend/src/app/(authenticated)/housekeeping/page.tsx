@@ -23,7 +23,7 @@ export default function HousekeepingDashboard() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: string }) => {
-      const payload: RoomStatusUpdateRequest = { status: status as any };
+      const payload: RoomStatusUpdateRequest = { status: status as 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'OUT_OF_ORDER' };
       const res = await apiClient(`/api/proxy/rooms/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

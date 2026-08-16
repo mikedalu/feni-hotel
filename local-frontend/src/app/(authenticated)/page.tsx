@@ -48,7 +48,7 @@ export default function Home() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Welcome back, {user?.username}</h2>
-          <p className="text-sm text-gray-500 mt-1">Here is what's happening at Feni Hotel today.</p>
+          <p className="text-sm text-gray-500 mt-1">Here is what&apos;s happening at Feni Hotel today.</p>
         </div>
       </div>
 
@@ -125,7 +125,7 @@ export default function Home() {
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dx={-10} tickFormatter={(val) => `₦${val/1000}k`} />
                     <RechartsTooltip 
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: any) => [`₦ ${value.toLocaleString()}`, 'Revenue']}
+                      formatter={(value: unknown) => [`₦ ${Number(value || 0).toLocaleString()}`, 'Revenue']}
                     />
                     <Area type="monotone" dataKey="revenue" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
                   </AreaChart>
@@ -144,7 +144,7 @@ export default function Home() {
                     <RechartsTooltip 
                       cursor={{fill: '#f3f4f6'}}
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: any) => [`${value}%`, 'Occupancy']}
+                      formatter={(value: unknown) => [`${Number(value || 0)}%`, 'Occupancy']}
                     />
                     <Bar dataKey="occupancy" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
                   </BarChart>
