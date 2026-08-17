@@ -175,21 +175,21 @@ export default function Home() {
             <p className="text-xs text-gray-500">New touch or barcode sale</p>
           </Link>
 
-          <button className="group flex flex-col items-center text-center p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-amber-200 hover:bg-amber-50/50 transition-all duration-300 cursor-not-allowed opacity-70">
-            <div className="h-14 w-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+          <Link href="/inventory/intake" className="group flex flex-col items-center text-center p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-amber-200 hover:bg-amber-50/50 transition-all duration-300">
+            <div className="h-14 w-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm">
               <ClipboardDocumentListIcon className="h-7 w-7" />
             </div>
             <h3 className="text-base font-bold text-gray-900 mb-1">Inventory Intake</h3>
-            <p className="text-xs text-gray-500">Scan & print barcode labels (Coming Soon)</p>
-          </button>
+            <p className="text-xs text-gray-500">Scan & print barcode labels</p>
+          </Link>
 
-          <button className="group flex flex-col items-center text-center p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-rose-200 hover:bg-rose-50/50 transition-all duration-300 cursor-not-allowed opacity-70">
-            <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+          <Link href="/reports/shift-summary" className="group flex flex-col items-center text-center p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-rose-200 hover:bg-rose-50/50 transition-all duration-300">
+            <div className="h-14 w-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm">
               <ChartPieIcon className="h-7 w-7" />
             </div>
             <h3 className="text-base font-bold text-gray-900 mb-1">Shift Summary</h3>
-            <p className="text-xs text-gray-500">View daily occupancy & stats (Coming Soon)</p>
-          </button>
+            <p className="text-xs text-gray-500">View daily occupancy & stats</p>
+          </Link>
         </div>
       </div>
     </div>

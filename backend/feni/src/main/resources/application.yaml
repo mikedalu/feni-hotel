@@ -43,9 +43,6 @@ bootstrap:
     username: ${ADMIN_USERNAME:admin}
     # no default password — to avoid accidentally shipping to production
 
-r2:
-  bucket: ${R2_BUCKET:feni-dev}
-  access-key: ${R2_ACCESS_KEY:dev}
-  secret-key: ${R2_SECRET_KEY:dev}
-  endpoint: ${R2_ENDPOINT:https://xxxxxx.r2.cloudflarestorage.com}
-  public-url: ${R2_PUBLIC_URL:https://dev.r2.dev}
+storage:
+  local:
+    path: ./uploads

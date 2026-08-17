@@ -2,7 +2,7 @@ package com.backend.feni.service.email;
 
 import com.backend.feni.entity.Facility;
 import com.backend.feni.repository.FacilityRepository;
-import com.backend.feni.service.R2UploadService;
+import com.backend.feni.service.LocalFileUploadService;
 import com.backend.feni.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ import java.util.UUID;
 public class ReportScheduler {
 
     private final ReportService reportService;
-    private final R2UploadService r2UploadService;
+    private final LocalFileUploadService localFileUploadService;
     private final EmailSender emailSender;
     private final FacilityRepository facilityRepo;
 
@@ -45,16 +45,13 @@ public class ReportScheduler {
             byte[] pdfBytes = reportService.generateMonthlyPnlBytes(year, month);
             
             String reportName = "Monthly-PnL-" + year + "-" + month;
-            String pdfUrl = r2UploadService.uploadReportPdf(pdfBytes, facility.getId(), reportName);
+            String reportUrl = localFileUploadService.uploadReportPdf(pdfBytes, facility.getId(), reportName);
 
             String subject = "Monthly P&L Report: " + previousMonth.getMonth() + " " + year;
             String htmlBody = String.format(
-                    "<h1>Monthly Profit & Loss Report</h1>" +
-                    "<p>Dear Admin,</p>" +
-                    "<p>The Profit & Loss statement for <b>%s %d</b> has been generated.</p>" +
-                    "<p><a href=\"%s\">Click here to view/download the report</a></p>",
-                    previousMonth.getMonth(), year, pdfUrl);
-
+                "<p>Hello,</p><p>The Monthly P&L report for %s %s is ready.</p><p>You can download it here: <a href=\"%s\">Download PDF</a></p>",
+                previousMonth.getMonth(), year, reportUrl
+            );
             emailSender.send(adminEmail, subject, htmlBody);
             log.info("Successfully generated and emailed Monthly P&L for {} {}", previousMonth.getMonth(), year);
             

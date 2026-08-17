@@ -12,13 +12,14 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @Slf4j
 public class SelfCheckinService {
 
     private final BookingService bookingService;
-    private final R2UploadService r2UploadService;
+    private final LocalFileUploadService localFileUploadService;
     private final FacilityRepository facilityRepo;
     private final RestClient restClient;
     
@@ -29,10 +30,10 @@ public class SelfCheckinService {
     private String cloudSyncUrl; // e.g. http://localhost:3000/api/sync/events. We can derive checkin URL from it.
 
     public SelfCheckinService(BookingService bookingService, 
-                              R2UploadService r2UploadService, 
+                              LocalFileUploadService localFileUploadService, 
                               FacilityRepository facilityRepo) {
         this.bookingService = bookingService;
-        this.r2UploadService = r2UploadService;
+        this.localFileUploadService = localFileUploadService;
         this.facilityRepo = facilityRepo;
         this.restClient = RestClient.builder().build();
     }
@@ -78,8 +79,7 @@ public class SelfCheckinService {
         // 1. Core booking flow handles the Booking, Journal, and Outbox event
         bookingService.createBooking(request.getBookingRequest(), staffId);
 
-        // 2. Upload ID scan asynchronously
-        r2UploadService.uploadIdScanAsync(request.getIdScanBase64(), facility.getId());
+        CompletableFuture<String> futureIdUrl = localFileUploadService.uploadIdScanAsync(request.getIdScanBase64(), facility.getId());
 
         // 3. Clear cloud session to prevent stale data
         try {

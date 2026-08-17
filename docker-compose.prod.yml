@@ -25,6 +25,8 @@ services:
       # Add production JWT signing key and other secrets via .env file on the server
     ports:
       - "8080:8080"
+    volumes:
+      - feni_uploads:/app/uploads
     depends_on:
       - postgres
     restart: unless-stopped
@@ -42,3 +44,4 @@ services:
 
 volumes:
   postgres_data:
+  feni_uploads:

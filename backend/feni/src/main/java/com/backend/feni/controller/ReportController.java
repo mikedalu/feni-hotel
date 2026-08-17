@@ -61,4 +61,13 @@ public class ReportController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(resource);
     }
+
+    @GetMapping("/shift-summary/data")
+    public java.util.List<com.backend.feni.dto.response.ShiftSummaryDataResponse> getShiftSummaryData(
+            @RequestParam(required = false) LocalDate date) {
+        if (date == null) {
+            date = LocalDate.now();
+        }
+        return reportService.getShiftSummaryData(date);
+    }
 }

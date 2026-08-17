@@ -22,9 +22,6 @@ springdoc:
   api-docs:
     enabled: false
 
-r2:
-  bucket: ${R2_BUCKET}
-  access-key: ${R2_ACCESS_KEY}
-  secret-key: ${R2_SECRET_KEY}
-  endpoint: ${R2_ENDPOINT}
-  public-url: ${R2_PUBLIC_URL}
+storage:
+  local:
+    path: ${STORAGE_LOCAL_PATH:./uploads}

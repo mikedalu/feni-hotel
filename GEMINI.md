@@ -31,7 +31,7 @@ during total internet outages, since facilities cannot depend on stable connecti
 | Cloud Frontend (Admin Dashboard) | Next.js, TypeScript, Tailwind, recharts                                                                        |
 | Cloud Backend                    | Next.js API routes (no separate Spring service in the cloud)                                                   |
 | Cloud DB                         | Managed Postgres (Neon/Supabase)                                                                               |
-| File storage                     | Cloudflare R2 (S3-compatible; ID scans, generated PDFs)                                                        |
+| File storage                     | Local File System (ID scans, generated PDFs) mapped via Spring WebMvc config                                   |
 | Sync mechanism                   | Transactional Outbox pattern, `@Scheduled` polling (NOT WebSockets — decided deliberately, see §6)             |
 | Hardware                         | Raw TCP sockets — ESC/POS (receipt printers), ZPL (label printers), port 9100                                  |
 | Auth                             | Self-issued JWT (HS256, Nimbus), stateless, role-based                                                         |
@@ -366,39 +366,9 @@ queueCapacity=50`), `@EnableAsync`.
 
 ## 10. What's NOT Built Yet — Actual Remaining Work
 
-- `PosSaleController` (service exists, no REST endpoint wired yet)
-- `InventoryController` (service exists, no REST endpoint wired yet)
-- `BookingController` — general (non-self-checkin) booking creation
-- `SelfCheckinController` (local side) — `/api/checkin/self-checkin/start`,
-  `/api/checkin/confirm` (per §5 design; not yet coded)
-- Cloud Next.js `/api/checkin/session` + `/api/checkin/session/[sessionId]` routes
-  (Redis-backed waiting room, per §5)
-- Cloud Next.js `/api/sync/events` receiving endpoint (idempotent upsert by event ID,
-  `x-facility-api-key` auth, switch-by-`eventType` fan-out)
-- `OutboxSyncWorker` (`@Scheduled` polling job — design finalized in §3, not yet coded)
-- `R2UploadService` (Cloudflare R2 / S3-compatible client, async ID-image upload)
-- Guest-facing public check-in form (Next.js, cloud-hosted)
-- Receptionist tablet polling UI (`useCheckinPolling` via React Query, per §5)
-- Local PWA: hidden-input barcode scanner listener, POS touch grid, kiosk-mode PWA
-  config (`next-pwa`)
-- Cloud Admin Dashboard: P&L report generation (query `journal_lines` → PDF → R2 →
-  signed download link), revenue charts (recharts)
-- `Dockerfile` + `docker-compose.yml` for local dev and facility deployment
-- GitHub Actions pipelines for `develop` (staging build/test) and `main` (production
-  build + webhook to facility server for pull + restart)
-- Integration tests (Testcontainers-backed Postgres) for `PosSaleService` and the
-  outbox worker
-- Decision resolved: We will add a "recover session" mechanism for the Cloud Clipboard TTL-expiry gap (§5) rather than accepting the ephemeral window.
-- ~~`EmailSender` interface + `GmailSmtpEmailSender` implementation (§8)~~ (Built)
-- Email trigger wiring per the table in §8: booking confirmation, monthly P&L delivery, outbox-failure ops alert
-- `ResendEmailSender` implementation — deliberately deferred until Phase 1 (Gmail) is
-  working end-to-end; don't build both providers simultaneously
-- Report endpoints: `POST /api/reports/{type}/generate` for sales, inventory,
-  occupancy, daily shift summary, staff activity (§7) — none exist yet, and staff
-  activity report specifically requires adding a `processedBy` reference to
-  `Sale`/`Booking` first (schema gap noted in §7)
-- Low-stock threshold concept on `Product` — needed before the low-stock email
-  trigger (§8) can be built; don't build the email trigger first
+- Phase 2 Email Provider (`ResendEmailSender` implementation) — deliberately deferred until Phase 1 (Gmail) is fully verified.
+- Local Frontend Views for **Inventory Intake** (scan & print barcode labels) and **Shift Summary** (view daily occupancy & stats) — currently stubbed out as "Coming Soon" on the local dashboard.
+- Any further polish or end-to-end testing of the full facility suite.
 
 ---
 
