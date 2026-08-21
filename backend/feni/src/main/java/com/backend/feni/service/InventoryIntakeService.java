@@ -22,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +36,7 @@ public class InventoryIntakeService {
     private final OutboxEventRepository outboxRepo;
     private final ThermalPrinterService printerService;
     private final StaffUserRepository staffRepo;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public void receiveShipment(InventoryIntakeRequest request, UUID staffId) {
@@ -48,6 +52,7 @@ public class InventoryIntakeService {
                 .build();
 
         BigDecimal totalInventoryValue = BigDecimal.ZERO;
+        List<Product> updatedProducts = new ArrayList<>();
 
         for (InventoryIntakeItemRequest itemReq : request.getItems()) {
             Product product = productRepo.findByInternalSku(itemReq.getInternalSku())
@@ -63,6 +68,7 @@ public class InventoryIntakeService {
             totalInventoryValue = totalInventoryValue.add(lineValue);
 
             productRepo.save(product);
+            updatedProducts.add(product);
 
             // Print labels async if printer IP provided and product needs an internal SKU sticker
             if (request.getPrinterIp() != null && !request.getPrinterIp().isEmpty()) {
@@ -86,12 +92,22 @@ public class InventoryIntakeService {
 
         journalRepo.save(journalEntry);
 
-        // Transactional Outbox
-        OutboxEvent event = OutboxEvent.builder()
-                .eventType("INVENTORY_RECEIVED")
-                .payload("{\"referenceId\":\"" + intakeReferenceId + "\", \"totalValue\":" + totalInventoryValue + "}")
-                .status(OutboxStatus.PENDING)
-                .build();
-        outboxRepo.save(event);
+        try {
+            java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+            payloadMap.put("referenceId", intakeReferenceId);
+            payloadMap.put("totalValue", totalInventoryValue);
+            payloadMap.put("journalEntry", journalEntry);
+            payloadMap.put("updatedProducts", updatedProducts);
+            String payload = objectMapper.writeValueAsString(payloadMap);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType("INVENTORY_RECEIVED")
+                    .payload(payload)
+                    .status(OutboxStatus.PENDING)
+                    .build();
+            outboxRepo.save(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize outbox event payload", e);
+        }
     }
 }

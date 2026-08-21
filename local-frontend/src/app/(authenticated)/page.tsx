@@ -14,30 +14,12 @@ import {
   ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-
-const mockRevenueData = [
-  { name: 'Mon', revenue: 4000 },
-  { name: 'Tue', revenue: 3000 },
-  { name: 'Wed', revenue: 2000 },
-  { name: 'Thu', revenue: 2780 },
-  { name: 'Fri', revenue: 1890 },
-  { name: 'Sat', revenue: 2390 },
-  { name: 'Sun', revenue: 3490 },
-];
-
-const mockOccupancyData = [
-  { name: 'Mon', occupancy: 65 },
-  { name: 'Tue', occupancy: 59 },
-  { name: 'Wed', occupancy: 80 },
-  { name: 'Thu', occupancy: 81 },
-  { name: 'Fri', occupancy: 56 },
-  { name: 'Sat', occupancy: 55 },
-  { name: 'Sun', occupancy: 40 },
-];
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 
 export default function Home() {
   const { user } = useAuth();
   const role = user?.role;
+  const { data: stats, isLoading } = useDashboardStats();
 
   const isAdminOrManager = ['ADMIN', 'MANAGER'].includes(role || '');
 
@@ -59,9 +41,13 @@ export default function Home() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-                <h3 className="text-2xl font-bold text-gray-900 mt-1">₦ 1,432,000</h3>
-                <p className="text-xs font-medium text-emerald-600 mt-1 flex items-center gap-1">
-                  <ArrowTrendingUpIcon className="h-3 w-3" /> +14.5% this week
+                <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                  {isLoading ? '...' : `₦ ${(stats?.totalRevenue ?? 0).toLocaleString()}`}
+                </h3>
+                <p className={`text-xs font-medium mt-1 flex items-center gap-1 ${!stats || stats.revenuePercentageChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <ArrowTrendingUpIcon className={`h-3 w-3 ${stats && stats.revenuePercentageChange < 0 ? 'rotate-180 transform' : ''}`} /> 
+                  {isLoading ? '...' : `${stats?.revenuePercentageChange && stats.revenuePercentageChange > 0 ? '+' : ''}${(stats?.revenuePercentageChange ?? 0).toFixed(1)}% this week`}
+                  <span className="text-gray-400 font-normal ml-1 cursor-help" title="Calculated by comparing revenue from the last 7 days against the preceding 7 days.">(?)</span>
                 </p>
               </div>
               <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
@@ -72,9 +58,11 @@ export default function Home() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Active Guests</p>
-                <h3 className="text-2xl font-bold text-gray-900 mt-1">124</h3>
-                <p className="text-xs font-medium text-emerald-600 mt-1 flex items-center gap-1">
-                  <ArrowTrendingUpIcon className="h-3 w-3" /> +4 this week
+                <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                  {isLoading ? '...' : stats?.activeGuests ?? 0}
+                </h3>
+                <p className="text-xs font-medium text-gray-500 mt-1 flex items-center gap-1">
+                  <UserGroupIcon className="h-3 w-3" /> Currently Checked-in
                 </p>
               </div>
               <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
@@ -85,9 +73,11 @@ export default function Home() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Occupancy Rate</p>
-                <h3 className="text-2xl font-bold text-gray-900 mt-1">82%</h3>
-                <p className="text-xs font-medium text-emerald-600 mt-1 flex items-center gap-1">
-                  <ArrowTrendingUpIcon className="h-3 w-3" /> +2.1% today
+                <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                  {isLoading ? '...' : `${(stats?.occupancyRate ?? 0).toFixed(1)}%`}
+                </h3>
+                <p className="text-xs font-medium text-gray-500 mt-1 flex items-center gap-1">
+                  <KeyIcon className="h-3 w-3" /> Today
                 </p>
               </div>
               <div className="h-12 w-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
@@ -98,7 +88,9 @@ export default function Home() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-500">Pending Check-ins</p>
-                <h3 className="text-2xl font-bold text-gray-900 mt-1">12</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                  {isLoading ? '...' : stats?.pendingCheckins ?? 0}
+                </h3>
                 <p className="text-xs font-medium text-gray-500 mt-1">Expected today</p>
               </div>
               <div className="h-12 w-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
@@ -113,7 +105,7 @@ export default function Home() {
               <h3 className="text-lg font-bold text-gray-900 mb-6">Revenue Trend (7 Days)</h3>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mockRevenueData}>
+                  <AreaChart data={stats?.revenueTrend || []}>
                     <defs>
                       <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
@@ -137,7 +129,7 @@ export default function Home() {
               <h3 className="text-lg font-bold text-gray-900 mb-6">Occupancy Rate (%)</h3>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mockOccupancyData} barSize={32}>
+                  <BarChart data={stats?.occupancyTrend || []} barSize={32}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dx={-10} domain={[0, 100]} />
@@ -175,7 +167,7 @@ export default function Home() {
             <p className="text-xs text-gray-500">New touch or barcode sale</p>
           </Link>
 
-          <Link href="/inventory/intake" className="group flex flex-col items-center text-center p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-amber-200 hover:bg-amber-50/50 transition-all duration-300">
+          <Link href="/inventory" className="group flex flex-col items-center text-center p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-xl hover:border-amber-200 hover:bg-amber-50/50 transition-all duration-300">
             <div className="h-14 w-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm">
               <ClipboardDocumentListIcon className="h-7 w-7" />
             </div>

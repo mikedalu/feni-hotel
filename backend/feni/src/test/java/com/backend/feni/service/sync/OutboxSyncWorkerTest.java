@@ -6,6 +6,7 @@ import com.backend.feni.repository.OutboxEventRepository;
 import com.backend.feni.entity.SystemAlert;
 import com.backend.feni.entity.enums.SystemAlertType;
 import com.backend.feni.repository.SystemAlertRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -49,11 +50,12 @@ class OutboxSyncWorkerTest {
         when(restClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(any(String.class))).thenReturn(requestBodySpec);
         when(requestBodySpec.header(anyString(), anyString())).thenReturn(requestBodySpec);
+        when(requestBodySpec.contentType(any())).thenReturn(requestBodySpec);
         when(requestBodySpec.body(any(Object.class))).thenReturn(requestBodySpec);
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toBodilessEntity()).thenReturn(ResponseEntity.ok().build());
         
-        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, "http://dummy", "dummy-key");
+        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, new ObjectMapper(), "http://dummy", "dummy-key");
         org.springframework.test.util.ReflectionTestUtils.setField(worker, "restClient", restClient);
     }
 

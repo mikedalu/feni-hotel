@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/lib/apiClient";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -43,7 +44,7 @@ export default function ChangePasswordPage() {
       }
 
       // Password changed successfully, user must login again (or we can just redirect if we have a valid token)
-      alert("Password changed successfully! You will now be redirected.");
+      toast.success("Password changed successfully! You will now be redirected.");
       router.push("/pos");
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -58,6 +59,7 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <Toaster position="top-right" />
       <div className="max-w-md w-full p-8 bg-white rounded-xl shadow-lg border border-gray-100">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-black text-blue-900 tracking-tight">Action Required</h1>

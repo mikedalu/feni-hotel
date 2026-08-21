@@ -7,6 +7,7 @@ import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import ProductGrid from "@/components/pos/ProductGrid";
 import CartSidebar from "@/components/pos/CartSidebar";
 import { apiClient } from "@/lib/apiClient";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -66,8 +67,9 @@ export default function POSPage() {
       const product = products.find(p => p.internalSku === barcode);
       if (product) {
         addToCart(product);
+        toast.success(`Added ${product.name} to cart`);
       } else {
-        alert(`Product not found for barcode: ${barcode}`);
+        toast.error(`Product not found for barcode: ${barcode}`);
       }
     }
   });
@@ -78,7 +80,7 @@ export default function POSPage() {
 
     const request: PosSaleRequest = {
       items: cart.map(item => ({
-        productId: item.id,
+        skuOrBarcode: item.internalSku,
         quantity: item.cartQuantity
       })),
       paymentMethod,
@@ -95,14 +97,63 @@ export default function POSPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Checkout failed");
+        let errorMsg = "Checkout failed";
+        try {
+          const errData = await res.json();
+          if (errData && errData.message) {
+            errorMsg = errData.message;
+          }
+        } catch (e) {
+          // ignore parsing error if it's not JSON
+        }
+        throw new Error(errorMsg);
       }
       
       setCart([]);
-      alert("Sale completed successfully!");
-    } catch (err) {
+      toast.success("Sale completed successfully!");
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to complete sale.");
+      toast.error(err.message || "Failed to complete sale.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handlePrintPreReceipt = async (printerIp: string) => {
+    if (cart.length === 0 || !printerIp) return;
+    setIsProcessing(true);
+    
+    try {
+      const request: PosSaleRequest = {
+        items: cart.map(item => ({
+          skuOrBarcode: item.internalSku,
+          quantity: item.cartQuantity
+        })),
+        paymentMethod: "CASH", // Not used for printing, but required by DTO
+        printerIp: printerIp.trim()
+      };
+
+      const res = await apiClient("/api/proxy/pos/print-pre-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request)
+      });
+
+      if (!res.ok) {
+        let errorMsg = "Failed to print pre-receipt";
+        try {
+          const errData = await res.json();
+          if (errData && errData.message) {
+            errorMsg = errData.message;
+          }
+        } catch (e) {}
+        throw new Error(errorMsg);
+      }
+      
+      toast.success("Bill sent to printer successfully!");
+    } catch (err: any) {
+      console.error("Print bill error:", err);
+      toast.error(err.message || "Failed to print bill");
     } finally {
       setIsProcessing(false);
     }
@@ -114,7 +165,7 @@ export default function POSPage() {
 
     const request = {
       items: cart.map(item => ({
-        productId: item.id,
+        skuOrBarcode: item.internalSku,
         quantity: item.cartQuantity
       })),
       paymentMethod: "CASH", // Required by DTO but doesn't affect invoice
@@ -128,7 +179,16 @@ export default function POSPage() {
         body: JSON.stringify(request)
       });
 
-      if (!res.ok) throw new Error("Failed to generate invoice");
+      if (!res.ok) {
+        let errorMsg = "Failed to generate invoice";
+        try {
+          const errData = await res.json();
+          if (errData && errData.message) {
+            errorMsg = errData.message;
+          }
+        } catch (e) {}
+        throw new Error(errorMsg);
+      }
       
       const data = await res.json();
       
@@ -147,10 +207,11 @@ export default function POSPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(objectUrl);
+      toast.success("Invoice downloaded successfully!");
       
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to download invoice.");
+      toast.error(err.message || "Failed to download invoice.");
     } finally {
       setIsProcessing(false);
     }
@@ -158,6 +219,7 @@ export default function POSPage() {
 
   return (
     <div className="flex flex-1 bg-gray-100 overflow-hidden text-gray-900">
+      <Toaster position="top-right" />
       
       {/* Left side: Product Grid */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -208,6 +270,7 @@ export default function POSPage() {
           onRemoveItem={removeItem}
           onClearCart={() => setCart([])}
           onCheckout={handleCheckout}
+          onPrintPreReceipt={handlePrintPreReceipt}
           onDownloadInvoice={handleDownloadInvoice}
           isProcessing={isProcessing}
         />

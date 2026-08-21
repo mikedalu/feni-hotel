@@ -1,4 +1,8 @@
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   application:
     name: feni
   jpa:
@@ -23,7 +27,7 @@ spring:
           
 cloud:
   sync:
-    url: "http://localhost:3001/api/sync/events"
+    url: ${CLOUD_SYNC_URL:http://host.docker.internal:3001/api/sync/events}
     api-key: "default-dev-key"
     polling-delay: 5000
 

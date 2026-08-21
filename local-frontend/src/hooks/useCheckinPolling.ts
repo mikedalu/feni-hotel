@@ -8,7 +8,8 @@ export const useCheckinPolling = (sessionId: string | null) => {
       if (!sessionId) return null;
       // We point to the cloud API endpoint here. Since we're running locally, we assume cloud API is on port 3000
       // In production, this would be an absolute URL like https://app.senforge.com/api/checkin/session/...
-      const response = await fetch(`http://localhost:3000/api/checkin/session/${sessionId}`);
+      const cloudUrl = process.env.NEXT_PUBLIC_CLOUD_URL || 'http://localhost:3001';
+      const response = await fetch(`${cloudUrl}/api/checkin/session/${sessionId}`);
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Session not found or expired');

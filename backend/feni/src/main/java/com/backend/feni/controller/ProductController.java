@@ -12,6 +12,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.backend.feni.entity.OutboxEvent;
+import com.backend.feni.entity.enums.OutboxStatus;
+import com.backend.feni.repository.OutboxEventRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/api/products")
@@ -19,6 +24,8 @@ import java.util.stream.Collectors;
 public class ProductController {
 
     private final ProductRepository productRepository;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     @GetMapping
     public List<ProductResponse> getAllProducts() {
@@ -29,6 +36,7 @@ public class ProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public ProductResponse createProduct(@Valid @RequestBody ProductRequest request) {
         Product product = Product.builder()
                 .name(request.getName())
@@ -41,10 +49,13 @@ public class ProductController {
                 .price(request.getPrice())
                 .unitCost(request.getUnitCost())
                 .build();
-        return mapToResponse(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        createProductOutboxEvent(saved);
+        return mapToResponse(saved);
     }
 
     @PutMapping("/{id}")
+    @Transactional
     public ProductResponse updateProduct(@PathVariable UUID id, @Valid @RequestBody ProductRequest request) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found"));
@@ -59,7 +70,26 @@ public class ProductController {
         product.setPrice(request.getPrice());
         product.setUnitCost(request.getUnitCost());
 
-        return mapToResponse(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        createProductOutboxEvent(saved);
+        return mapToResponse(saved);
+    }
+
+    private void createProductOutboxEvent(Product product) {
+        try {
+            java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+            payloadMap.put("product", product);
+            String payload = objectMapper.writeValueAsString(payloadMap);
+            
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType("PRODUCT_UPSERTED")
+                    .payload(payload)
+                    .status(OutboxStatus.PENDING)
+                    .build();
+            outboxEventRepository.save(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize product for outbox event", e);
+        }
     }
 
     private ProductResponse mapToResponse(Product product) {

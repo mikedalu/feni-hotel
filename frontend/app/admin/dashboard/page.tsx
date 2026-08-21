@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, Users, DollarSign, Activity } from "lucide-react";
+import { TrendingUp, Users, DollarSign, Activity, Info } from "lucide-react";
 
 export default function DashboardPage() {
   const [data, setData] = useState<{ summary: any; chartData: any[] } | null>(null);
@@ -27,8 +27,8 @@ export default function DashboardPage() {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       <div>
-        <h2 className="text-3xl font-bold text-gray-900">Global Overview</h2>
-        <p className="text-gray-500 mt-1">Real-time metrics aggregated across all local facilities.</p>
+        <h2 className="text-3xl font-bold text-gray-900">Hotel Overview</h2>
+        <p className="text-gray-500 mt-1">Real-time financial and operational metrics for Feni Hotel.</p>
       </div>
 
       {/* Summary Cards */}
@@ -36,7 +36,14 @@ export default function DashboardPage() {
         
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500">Total Revenue</p>
+            <div className="group relative flex items-center gap-1.5 cursor-help">
+              <p className="text-sm font-medium text-gray-500">Total Revenue</p>
+              <Info className="w-3.5 h-3.5 text-gray-400" />
+              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 font-medium">
+                Total money collected from all sales and room bookings.
+                <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1"></div>
+              </div>
+            </div>
             <h3 className="text-2xl font-bold text-gray-900 mt-1">
               ₦{data.summary.totalRevenue.toLocaleString()}
             </h3>
@@ -48,7 +55,14 @@ export default function DashboardPage() {
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500">Total Bookings</p>
+            <div className="group relative flex items-center gap-1.5 cursor-help">
+              <p className="text-sm font-medium text-gray-500">Total Bookings</p>
+              <Info className="w-3.5 h-3.5 text-gray-400" />
+              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 font-medium">
+                Total number of successful room reservations during the period.
+                <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1"></div>
+              </div>
+            </div>
             <h3 className="text-2xl font-bold text-gray-900 mt-1">
               {data.summary.totalBookings.toLocaleString()}
             </h3>
@@ -60,7 +74,14 @@ export default function DashboardPage() {
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500">Gross Profit</p>
+            <div className="group relative flex items-center gap-1.5 cursor-help">
+              <p className="text-sm font-medium text-gray-500">Gross Profit</p>
+              <Info className="w-3.5 h-3.5 text-gray-400" />
+              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 font-medium">
+                Revenue minus the Cost of Goods Sold (COGS).
+                <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1"></div>
+              </div>
+            </div>
             <h3 className="text-2xl font-bold text-gray-900 mt-1">
               ₦{data.summary.grossProfit.toLocaleString()}
             </h3>
@@ -72,7 +93,14 @@ export default function DashboardPage() {
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500">Avg. Margin</p>
+            <div className="group relative flex items-center gap-1.5 cursor-help">
+              <p className="text-sm font-medium text-gray-500">Avg. Margin</p>
+              <Info className="w-3.5 h-3.5 text-gray-400" />
+              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 font-medium">
+                The percentage of revenue you keep as gross profit.
+                <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1"></div>
+              </div>
+            </div>
             <h3 className="text-2xl font-bold text-gray-900 mt-1">
               {data.summary.totalRevenue > 0 
                 ? Math.round((data.summary.grossProfit / data.summary.totalRevenue) * 100)
@@ -113,7 +141,7 @@ export default function DashboardPage() {
                 />
                 <Tooltip 
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  formatter={(value: number) => [`₦${value.toLocaleString()}`, undefined]}
+                  formatter={(value: any) => [`₦${value.toLocaleString()}`, undefined]}
                 />
                 <Line 
                   type="monotone" 

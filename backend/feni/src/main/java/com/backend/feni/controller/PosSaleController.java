@@ -24,4 +24,9 @@ public class PosSaleController {
         UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
         posSaleService.completeSale(request, staffId);
     }
+
+    @PostMapping("/print-pre-receipt")
+    public void printPreReceipt(@Valid @RequestBody PosSaleRequest request) {
+        posSaleService.printPreReceipt(request);
+    }
 }

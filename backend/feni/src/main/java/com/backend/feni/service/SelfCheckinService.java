@@ -35,7 +35,9 @@ public class SelfCheckinService {
         this.bookingService = bookingService;
         this.localFileUploadService = localFileUploadService;
         this.facilityRepo = facilityRepo;
-        this.restClient = RestClient.builder().build();
+        this.restClient = RestClient.builder()
+                .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory())
+                .build();
     }
 
     private String getCloudCheckinUrl() {

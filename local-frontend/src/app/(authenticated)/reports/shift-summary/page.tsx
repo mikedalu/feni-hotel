@@ -33,7 +33,7 @@ export default function ShiftSummaryPage() {
   const fetchData = async (date: string) => {
     setIsLoading(true);
     try {
-      const res = await apiClient(`/api/reports/shift-summary/data?date=${date}`);
+      const res = await apiClient(`/api/proxy/reports/shift-summary/data?date=${date}`);
       if (!res.ok) throw new Error('Failed to fetch data');
       const json = await res.json();
       setData(json);
@@ -48,7 +48,7 @@ export default function ShiftSummaryPage() {
   const handleGeneratePdf = async () => {
     setIsGeneratingPdf(true);
     try {
-      const res = await apiClient(`/api/reports/shift-summary/generate?date=${selectedDate}`, {
+      const res = await apiClient(`/api/proxy/reports/shift-summary/generate?date=${selectedDate}`, {
         method: 'POST',
       });
       if (!res.ok) throw new Error('Failed to generate PDF');

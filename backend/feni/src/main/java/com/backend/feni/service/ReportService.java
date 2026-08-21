@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import com.backend.feni.dto.response.ShiftSummaryDataResponse;
+import com.backend.feni.dto.response.DashboardStatsResponse;
+import com.backend.feni.entity.enums.BookingStatus;
+import com.backend.feni.repository.RoomRepository;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.math.BigDecimal;
@@ -33,6 +36,7 @@ public class ReportService {
     private final BookingRepository bookingRepo;
     private final JournalLineRepository journalLineRepo;
     private final ProductRepository productRepo;
+    private final RoomRepository roomRepo;
 
     public String generateReport(String type, LocalDate date) {
         String title;
@@ -335,5 +339,77 @@ public class ReportService {
                 .lga(b.getGuest().getLga())
                 .nextOfKinPhone(b.getGuest().getNextOfKinPhone())
                 .build()).toList();
+    }
+    public DashboardStatsResponse getDashboardStats(LocalDate today) {
+        // Active guests (assuming CHECKED_IN bookings represent active guests)
+        int activeGuests = bookingRepo.findByStatus(BookingStatus.CHECKED_IN).size();
+
+        // Pending check-ins today
+        int pendingCheckins = bookingRepo.findByStatusAndCheckInDate(BookingStatus.RESERVED, today).size();
+
+        long totalRooms = roomRepo.count();
+        double occupancyRate = totalRooms > 0 ? ((double) activeGuests / totalRooms) * 100 : 0.0;
+
+        // Revenue logic
+        Instant startOfToday = today.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant endOfToday = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
+        // 7 days trend
+        List<DashboardStatsResponse.DailyRevenue> revenueTrend = new ArrayList<>();
+        List<DashboardStatsResponse.DailyOccupancy> occupancyTrend = new ArrayList<>();
+        
+        BigDecimal currentWeekRevenue = BigDecimal.ZERO;
+        BigDecimal lastWeekRevenue = BigDecimal.ZERO;
+
+        // We fetch revenue data for the past 14 days to compute percentage change
+        for (int i = 13; i >= 0; i--) {
+            LocalDate d = today.minusDays(i);
+            Instant s = d.atStartOfDay(ZoneId.systemDefault()).toInstant();
+            Instant e = d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+            
+            List<com.backend.feni.entity.JournalLine> dailyLines = journalLineRepo.findByAccountNameStartingWithAndDateBetween("Sales Revenue -", s, e);
+            BigDecimal dailyRev = dailyLines.stream().map(com.backend.feni.entity.JournalLine::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            if (i < 7) {
+                // Current 7 days
+                currentWeekRevenue = currentWeekRevenue.add(dailyRev);
+                
+                String dayName = d.getDayOfWeek().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH);
+                revenueTrend.add(new DashboardStatsResponse.DailyRevenue(dayName, dailyRev));
+                
+                // Calculate occupancy for this day (bookings that overlap with this day)
+                List<Booking> overlapping = bookingRepo.findByCheckInDateLessThanEqualAndCheckOutDateGreaterThan(d, d);
+                // Filter out cancelled bookings
+                long occupiedCount = overlapping.stream().filter(b -> b.getStatus() != BookingStatus.CANCELLED).count();
+                double dailyOcc = totalRooms > 0 ? ((double) occupiedCount / totalRooms) * 100 : 0.0;
+                occupancyTrend.add(new DashboardStatsResponse.DailyOccupancy(dayName, dailyOcc));
+            } else {
+                // Previous 7 days
+                lastWeekRevenue = lastWeekRevenue.add(dailyRev);
+            }
+        }
+
+        // Percentage change calculation
+        // Calculation: (Current Week - Last Week) / Last Week * 100
+        double revenuePercentageChange = 0.0;
+        if (lastWeekRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            revenuePercentageChange = currentWeekRevenue.subtract(lastWeekRevenue)
+                    .divide(lastWeekRevenue, 4, java.math.RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100))
+                    .doubleValue();
+        } else if (currentWeekRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            revenuePercentageChange = 100.0;
+        }
+
+        return DashboardStatsResponse.builder()
+                .totalRevenue(currentWeekRevenue) // This assumes totalRevenue displayed is for the current week
+                .revenuePercentageChange(revenuePercentageChange)
+                .activeGuests(activeGuests)
+                .occupancyRate(occupancyRate)
+                .occupancyPercentageChange(0.0) // Mocked for now, logic can be added similarly if requested
+                .pendingCheckins(pendingCheckins)
+                .revenueTrend(revenueTrend)
+                .occupancyTrend(occupancyTrend)
+                .build();
     }
 }

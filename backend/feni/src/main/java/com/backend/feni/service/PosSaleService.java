@@ -22,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +37,7 @@ public class PosSaleService {
     private final ThermalPrinterService printerService;
     private final StaffUserRepository staffRepo;
     private final com.backend.feni.service.email.EmailSender emailSender;
+    private final ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Value("${email.admin-address:admin@feni.local}")
     private String adminEmail;
@@ -53,15 +57,7 @@ public class PosSaleService {
 
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal totalCogs = BigDecimal.ZERO;
-
-        StringBuilder receiptBuilder = new StringBuilder();
-        receiptBuilder.append("============================\n");
-        receiptBuilder.append("         FENI HOTEL         \n");
-        receiptBuilder.append(" No. 1, Keana Link Road, Jos\n");
-        receiptBuilder.append("    Tel: +234 123 456 7890  \n");
-        receiptBuilder.append("============================\n");
-        receiptBuilder.append("        POS RECEIPT         \n");
-        receiptBuilder.append("============================\n\n");
+        List<Product> updatedProducts = new ArrayList<>();
 
         for (PosSaleItemRequest itemReq : request.getItems()) {
             Product product = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
@@ -92,14 +88,9 @@ public class PosSaleService {
             totalRevenue = totalRevenue.add(lineRevenue);
             totalCogs = totalCogs.add(lineCogs);
 
-            receiptBuilder.append(
-                    String.format("%s x%d  $%s\n", product.getName(), itemReq.getQuantity(), lineRevenue.toString()));
-
             productRepo.save(product);
+            updatedProducts.add(product);
         }
-
-        receiptBuilder.append(String.format("TOTAL: $%s\n", totalRevenue.toString()));
-        receiptBuilder.append("============================\n");
 
         String debitAccount = switch (request.getPaymentMethod()) {
             case CASH -> "Cash";
@@ -144,20 +135,68 @@ public class PosSaleService {
 
         journalRepo.save(journalEntry);
 
-        // Transactional Outbox
-        OutboxEvent event = OutboxEvent.builder()
-                .eventType("SALE_COMPLETED")
-                .payload("{\"referenceId\":\"" + saleReferenceId + "\", \"totalRevenue\":" + totalRevenue + "}") // Keep
-                                                                                                                 // simple
-                                                                                                                 // for
-                                                                                                                 // now
-                .status(OutboxStatus.PENDING)
-                .build();
-        outboxRepo.save(event);
+        try {
+            java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+            payloadMap.put("referenceId", saleReferenceId);
+            payloadMap.put("totalRevenue", totalRevenue);
+            payloadMap.put("journalEntry", journalEntry);
+            payloadMap.put("updatedProducts", updatedProducts);
+            String payload = objectMapper.writeValueAsString(payloadMap);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType("SALE_COMPLETED")
+                    .payload(payload)
+                    .status(OutboxStatus.PENDING)
+                    .build();
+            outboxRepo.save(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize outbox event payload", e);
+        }
 
         // Print receipt async
         if (request.getPrinterIp() != null && !request.getPrinterIp().isEmpty()) {
-            printerService.printReceiptAsync(receiptBuilder.toString(), request.getPrinterIp());
+            String receipt = buildReceiptContent(request, "POS RECEIPT");
+            printerService.printReceiptAsync(receipt, request.getPrinterIp());
         }
+    }
+
+    public void printPreReceipt(PosSaleRequest request) {
+        if (request.getPrinterIp() == null || request.getPrinterIp().isEmpty()) {
+            throw new IllegalArgumentException("Printer IP is required to print a pre-receipt");
+        }
+        String receipt = buildReceiptContent(request, "PROFORMA INVOICE");
+        printerService.printReceiptAsync(receipt, request.getPrinterIp());
+    }
+
+    private String buildReceiptContent(PosSaleRequest request, String headerTitle) {
+        StringBuilder receiptBuilder = new StringBuilder();
+        receiptBuilder.append("============================\n");
+        receiptBuilder.append("         FENI HOTEL         \n");
+        receiptBuilder.append(" No. 1, Keana Link Road, Jos\n");
+        receiptBuilder.append("    Tel: +234 123 456 7890  \n");
+        receiptBuilder.append("============================\n");
+        // Center the title roughly
+        int padding = Math.max(0, (28 - headerTitle.length()) / 2);
+        receiptBuilder.append(" ".repeat(padding)).append(headerTitle).append("\n");
+        receiptBuilder.append("============================\n\n");
+
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+
+        for (PosSaleItemRequest itemReq : request.getItems()) {
+            Product product = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
+                    .orElseGet(() -> productRepo.findByManufacturerBarcode(itemReq.getSkuOrBarcode())
+                            .orElseThrow(() -> new IllegalArgumentException(
+                                    "Product not found: " + itemReq.getSkuOrBarcode())));
+
+            BigDecimal lineRevenue = product.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            totalRevenue = totalRevenue.add(lineRevenue);
+
+            receiptBuilder.append(
+                    String.format("%s x%d  $%s\n", product.getName(), itemReq.getQuantity(), lineRevenue.toString()));
+        }
+
+        receiptBuilder.append(String.format("TOTAL: $%s\n", totalRevenue.toString()));
+        receiptBuilder.append("============================\n");
+        return receiptBuilder.toString();
     }
 }

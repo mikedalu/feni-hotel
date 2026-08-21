@@ -64,3 +64,7 @@ backend/feni/.nb-gradle/
 backend/feni/build/
 !backend/feni/**/src/main/**/build/
 !backend/feni/**/src/test/**/build/
+
+# Ignore large files and secrets
+*.tar
+.env

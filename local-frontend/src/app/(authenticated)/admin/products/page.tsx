@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/apiClient';
 import { Product, ProductType, RevenueCenter } from '@/types/product';
+import toast, { Toaster } from 'react-hot-toast';
 
 import { DataTable } from '@/components/ui/DataTable';
 import { DataTableColumnHeader } from '@/components/ui/DataTableColumnHeader';
@@ -90,9 +91,9 @@ export default function ProductsPage() {
       fetchProducts();
     } catch (err: unknown) {
       if (err instanceof Error) {
-        alert(err.message);
+        toast.error(err.message);
       } else {
-        alert('An error occurred');
+        toast.error('An error occurred');
       }
     }
   };
@@ -102,6 +103,7 @@ export default function ProductsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto w-full">
+      <Toaster position="top-right" />
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Products Catalog</h1>
         <button 

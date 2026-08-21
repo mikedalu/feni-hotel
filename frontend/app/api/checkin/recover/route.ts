@@ -3,8 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL as string });
 const prisma = new PrismaClient({ adapter });
 
 export async function GET(req: NextRequest) {
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Parse the payload strings back into JSON objects for the response
-    const formattedSessions = sessions.map(session => ({
+    const formattedSessions = sessions.map((session: any) => ({
       sessionId: session.sessionId,
       submittedAt: session.submittedAt,
       data: JSON.parse(session.payload)

@@ -4,6 +4,17 @@ export interface BookingResponse {
   guestLastName: string;
   guestEmail: string;
   guestPhone: string;
+  title?: string;
+  occupation?: string;
+  nextOfKinPhone?: string;
+  address?: string;
+  lga?: string;
+  nationality?: string;
+  stateOfOrigin?: string;
+  passportNo?: string;
+  purposeOfVisit?: string;
+  arrivingFrom?: string;
+  goingTo?: string;
   checkInDate: string;
   checkOutDate: string;
   roomNumber: string;

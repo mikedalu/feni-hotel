@@ -6,6 +6,8 @@ import { Product } from '@/types/product';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { DataTable } from '@/components/ui/DataTable';
 import { DataTableColumnHeader } from '@/components/ui/DataTableColumnHeader';
+import toast, { Toaster } from 'react-hot-toast';
+import { QrCodeIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,12 +40,13 @@ export default function InventoryPage() {
     const product = products.find(p => p.manufacturerBarcode === barcode || p.internalSku === barcode);
     if (product) {
       if (product.type !== 'RAW_GOOD') {
-        alert('Cannot intake non-raw goods.');
+        toast.error('Cannot intake non-raw goods.');
         return;
       }
       addToCart(product);
+      toast.success(`Scanned ${product.name}`);
     } else {
-      alert(`Barcode not found: ${barcode}`);
+      toast.error(`Barcode not found: ${barcode}`);
     }
   }
 
@@ -91,14 +94,14 @@ export default function InventoryPage() {
 
       if (!res.ok) throw new Error('Intake failed');
       
-      alert('Inventory intake completed successfully');
+      toast.success('Inventory intake completed successfully');
       setCart([]);
       fetchProducts(); // Refresh stock quantities
     } catch (err: unknown) {
       if (err instanceof Error) {
-        alert(err.message);
+        toast.error(err.message);
       } else {
-        alert('An error occurred');
+        toast.error('An error occurred');
       }
     }
   };
@@ -131,9 +134,9 @@ export default function InventoryPage() {
       
     } catch (err: unknown) {
       if (err instanceof Error) {
-        alert(err.message);
+        toast.error(err.message);
       } else {
-        alert('An error occurred');
+        toast.error('An error occurred');
       }
     }
   };
@@ -143,15 +146,30 @@ export default function InventoryPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <Toaster position="top-right" />
       {/* Left Column: Intake Cart */}
       <div className="lg:col-span-2 space-y-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        
+        {/* Scanner helper card */}
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden group">
+          <div className="absolute top-0 right-0 -mr-8 -mt-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
+            <QrCodeIcon className="w-48 h-48" />
+          </div>
+          <h3 className="text-xl font-bold mb-2 relative z-10 flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            Scanner Ready
+          </h3>
+          <p className="text-indigo-100 text-sm relative z-10 max-w-md">
+            Ensure focus is outside of input fields. You can start scanning barcodes with your hardware scanner now.
+          </p>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Inventory Intake</h2>
-            <div className="text-sm text-gray-500 flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              Scanner Ready
-            </div>
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <ShoppingCartIcon className="w-6 h-6 text-indigo-600" />
+              Intake Cart
+            </h2>
           </div>
           
           <div className="border border-gray-200 rounded-xl overflow-hidden mb-6">
@@ -227,11 +245,25 @@ export default function InventoryPage() {
             {products.filter(p => p.type === 'RAW_GOOD').map(p => (
               <button
                 key={p.id}
-                onClick={() => addToCart(p)}
-                className="p-4 border border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 text-left transition-colors"
+                onClick={() => {
+                  addToCart(p);
+                  toast.success(`Added ${p.name}`);
+                }}
+                className="p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-500 hover:shadow-md text-left transition-all group relative overflow-hidden"
               >
-                <div className="font-semibold text-gray-900">{p.name}</div>
-                <div className="text-xs text-gray-500 mt-1">Stock: {p.stockQty}</div>
+                <div className="absolute inset-0 bg-indigo-50/0 group-hover:bg-indigo-50/50 transition-colors" />
+                <div className="relative z-10">
+                  <div className="font-semibold text-gray-900 text-sm">{p.name}</div>
+                  <div className="text-xs text-gray-500 mt-1 font-mono">{p.internalSku}</div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                      Stock: {p.stockQty}
+                    </span>
+                    <span className="text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                      + Add
+                    </span>
+                  </div>
+                </div>
               </button>
             ))}
           </div>

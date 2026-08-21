@@ -14,6 +14,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: feni-redis
+    ports:
+      - "6380:6379"
+    restart: unless-stopped
+
   backend:
     image: ${REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}-backend:latest
     container_name: feni-backend
@@ -21,6 +28,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-feni_hotel}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-feni_user}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-feni_password}
+      - SPRING_DATA_REDIS_HOST=redis
       - SPRING_PROFILES_ACTIVE=prod
       # Add production JWT signing key and other secrets via .env file on the server
     ports:
@@ -29,6 +37,7 @@ services:
       - feni_uploads:/app/uploads
     depends_on:
       - postgres
+      - redis
     restart: unless-stopped
 
   frontend:

@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-facility-api-key',
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
 import { redis } from '@/lib/redis';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL as string });
 const prisma = new PrismaClient({ adapter });
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
@@ -21,19 +31,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sess
       });
       
       if (!dbSession) {
-        return NextResponse.json({ error: 'Session not found or expired' }, { status: 404 });
+        return NextResponse.json({ error: 'Session not found or expired' }, { status: 404, headers: corsHeaders });
       }
 
       const data = JSON.parse(dbSession.payload);
-      return NextResponse.json(data, { status: 200 });
+      return NextResponse.json(data, { status: 200, headers: corsHeaders });
     }
 
     const data = JSON.parse(dataStr);
-    return NextResponse.json(data, { status: 200 });
+    return NextResponse.json(data, { status: 200, headers: corsHeaders });
 
   } catch (error: any) {
     console.error('Error fetching session:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }
 
@@ -45,12 +55,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ sess
     
     const existingDataStr = await redis.get(redisKey);
     if (!existingDataStr) {
-      return NextResponse.json({ error: 'Session not found or expired' }, { status: 404 });
+      return NextResponse.json({ error: 'Session not found or expired' }, { status: 404, headers: corsHeaders });
     }
 
     const existingData = JSON.parse(existingDataStr);
     if (existingData.status === 'submitted') {
-      return NextResponse.json({ error: 'Session already submitted' }, { status: 400 });
+      return NextResponse.json({ error: 'Session already submitted' }, { status: 400, headers: corsHeaders });
     }
 
     // Merge data, keeping TTL (by default set resets TTL, so we need to get remaining TTL)
@@ -76,11 +86,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ sess
       }
     });
 
-    return NextResponse.json({ message: 'Session updated successfully' }, { status: 200 });
+    return NextResponse.json({ message: 'Session updated successfully' }, { status: 200, headers: corsHeaders });
 
   } catch (error: any) {
     console.error('Error updating session:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }
 
@@ -90,7 +100,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
     const apiKey = req.headers.get('x-facility-api-key');
 
     if (!apiKey) {
-      return NextResponse.json({ error: 'Missing x-facility-api-key header' }, { status: 401 });
+      return NextResponse.json({ error: 'Missing x-facility-api-key header' }, { status: 401, headers: corsHeaders });
     }
 
     const facility = await prisma.facility.findUnique({
@@ -98,7 +108,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
     });
 
     if (!facility) {
-      return NextResponse.json({ error: 'Invalid API Key' }, { status: 403 });
+      return NextResponse.json({ error: 'Invalid API Key' }, { status: 403, headers: corsHeaders });
     }
 
     const redisKey = `checkin:${sessionId}`;
@@ -108,14 +118,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
     if (dataStr) {
       const data = JSON.parse(dataStr);
       if (data.facilityId !== facility.id) {
-         return NextResponse.json({ error: 'Forbidden: Session belongs to another facility' }, { status: 403 });
+         return NextResponse.json({ error: 'Forbidden: Session belongs to another facility' }, { status: 403, headers: corsHeaders });
       }
     } else {
       const dbSession = await prisma.checkinSession.findUnique({
         where: { sessionId }
       });
       if (dbSession && dbSession.facilityId !== facility.id) {
-         return NextResponse.json({ error: 'Forbidden: Session belongs to another facility' }, { status: 403 });
+         return NextResponse.json({ error: 'Forbidden: Session belongs to another facility' }, { status: 403, headers: corsHeaders });
       }
     }
 
@@ -125,10 +135,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
     });
     await redis.del(redisKey);
     
-    return NextResponse.json({ message: 'Session deleted successfully' }, { status: 200 });
+    return NextResponse.json({ message: 'Session deleted successfully' }, { status: 200, headers: corsHeaders });
 
   } catch (error: any) {
     console.error('Error deleting session:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders });
   }
 }

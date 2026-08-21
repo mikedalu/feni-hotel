@@ -15,7 +15,7 @@ export interface CartItem extends Product {
 
 export interface PosSaleRequest {
   items: {
-    productId: string;
+    skuOrBarcode: string;
     quantity: number;
   }[];
   paymentMethod: "CASH" | "POS" | "TRANSFER";

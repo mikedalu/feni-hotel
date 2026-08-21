@@ -33,6 +33,7 @@ public class BookingService {
     private final RoomRepository roomRepo;
     private final ThermalPrinterService thermalPrinterService;
     private final ReportService reportService;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Transactional
     public void createBooking(BookingRequest request, UUID staffId) {
@@ -47,23 +48,23 @@ public class BookingService {
         }
 
         Guest guest = guestRepo.findByEmail(request.getGuestEmail())
-                .orElseGet(() -> Guest.builder()
-                        .firstName(request.getGuestFirstName())
-                        .lastName(request.getGuestLastName())
-                        .email(request.getGuestEmail())
-                        .phone(request.getGuestPhone())
-                        .title(request.getTitle())
-                        .occupation(request.getOccupation())
-                        .nextOfKinPhone(request.getNextOfKinPhone())
-                        .address(request.getAddress())
-                        .lga(request.getLga())
-                        .nationality(request.getNationality())
-                        .stateOfOrigin(request.getStateOfOrigin())
-                        .passportNo(request.getPassportNo())
-                        .purposeOfVisit(request.getPurposeOfVisit())
-                        .arrivingFrom(request.getArrivingFrom())
-                        .goingTo(request.getGoingTo())
-                        .build());
+                .orElseGet(() -> Guest.builder().email(request.getGuestEmail()).build());
+
+        guest.setFirstName(request.getGuestFirstName());
+        guest.setLastName(request.getGuestLastName());
+        guest.setPhone(request.getGuestPhone());
+
+        if (request.getTitle() != null) guest.setTitle(request.getTitle());
+        if (request.getOccupation() != null) guest.setOccupation(request.getOccupation());
+        if (request.getNextOfKinPhone() != null) guest.setNextOfKinPhone(request.getNextOfKinPhone());
+        if (request.getAddress() != null) guest.setAddress(request.getAddress());
+        if (request.getLga() != null) guest.setLga(request.getLga());
+        if (request.getNationality() != null) guest.setNationality(request.getNationality());
+        if (request.getStateOfOrigin() != null) guest.setStateOfOrigin(request.getStateOfOrigin());
+        if (request.getPassportNo() != null) guest.setPassportNo(request.getPassportNo());
+        if (request.getPurposeOfVisit() != null) guest.setPurposeOfVisit(request.getPurposeOfVisit());
+        if (request.getArrivingFrom() != null) guest.setArrivingFrom(request.getArrivingFrom());
+        if (request.getGoingTo() != null) guest.setGoingTo(request.getGoingTo());
         guest = guestRepo.save(guest);
 
         Booking booking = Booking.builder()
@@ -107,12 +108,30 @@ public class BookingService {
         }
         journalRepo.save(journalEntry);
 
-        OutboxEvent event = OutboxEvent.builder()
-                .eventType("BOOKING_CREATED")
-                .payload("{\"bookingId\":\"" + booking.getId() + "\", \"totalCost\":" + request.getTotalCost() + "}")
-                .status(OutboxStatus.PENDING)
-                .build();
-        outboxRepo.save(event);
+        try {
+            java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+            java.util.Map<String, Object> bookingMap = new java.util.HashMap<>();
+            bookingMap.put("id", booking.getId());
+            bookingMap.put("totalCost", booking.getTotalCost());
+            
+            java.util.Map<String, Object> processedByMap = new java.util.HashMap<>();
+            processedByMap.put("username", staffUser.getUsername());
+            bookingMap.put("processedBy", processedByMap);
+            
+            payloadMap.put("booking", bookingMap);
+            payloadMap.put("journalEntry", journalEntry);
+            
+            String payload = objectMapper.writeValueAsString(payloadMap);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType("BOOKING_CREATED")
+                    .payload(payload)
+                    .status(OutboxStatus.PENDING)
+                    .build();
+            outboxRepo.save(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize outbox event payload", e);
+        }
 
         if (request.getPrinterIp() != null && !request.getPrinterIp().isBlank()) {
             String receipt = String.format("============================\n         FENI HOTEL         \n No. 1, Keana Link Road, Jos\n    Tel: +234 123 456 7890  \n============================\n      BOOKING RECEIPT       \n============================\n\nRoom: %s\nCheck-in: %s\nCheck-out: %s\nTotal: $%s\n",
@@ -181,6 +200,8 @@ public class BookingService {
         BigDecimal newCost = request.getNewTotalCost();
         BigDecimal difference = newCost.subtract(oldCost);
 
+        JournalEntry finalJournalEntry = null;
+
         if (difference.compareTo(BigDecimal.ZERO) != 0) {
             JournalEntry journalEntry = JournalEntry.builder()
                     .entryType(EntryType.BOOKING_PAYMENT)
@@ -210,7 +231,7 @@ public class BookingService {
             if (totalDebit.compareTo(totalCredit) != 0) {
                 throw new UnbalancedJournalException("Journal entry is unbalanced during room change.");
             }
-            journalRepo.save(journalEntry);
+            finalJournalEntry = journalRepo.save(journalEntry);
         }
 
         // 4. Update booking
@@ -220,12 +241,33 @@ public class BookingService {
         bookingRepo.save(booking);
 
         // 5. Outbox Event
-        OutboxEvent event = OutboxEvent.builder()
-                .eventType("BOOKING_UPDATED")
-                .payload("{\"bookingId\":\"" + booking.getId() + "\", \"totalCost\":" + newCost + "}")
-                .status(OutboxStatus.PENDING)
-                .build();
-        outboxRepo.save(event);
+        try {
+            java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+            java.util.Map<String, Object> bookingMap = new java.util.HashMap<>();
+            bookingMap.put("id", booking.getId());
+            bookingMap.put("totalCost", booking.getTotalCost());
+            
+            java.util.Map<String, Object> processedByMap = new java.util.HashMap<>();
+            processedByMap.put("username", staffUser.getUsername());
+            bookingMap.put("processedBy", processedByMap);
+            
+            payloadMap.put("booking", bookingMap);
+            
+            if (finalJournalEntry != null) {
+                payloadMap.put("journalEntry", finalJournalEntry);
+            }
+            
+            String payload = objectMapper.writeValueAsString(payloadMap);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType("BOOKING_UPDATED")
+                    .payload(payload)
+                    .status(OutboxStatus.PENDING)
+                    .build();
+            outboxRepo.save(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize outbox event payload", e);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -242,6 +284,17 @@ public class BookingService {
                 .guestLastName(booking.getGuest().getLastName())
                 .guestEmail(booking.getGuest().getEmail())
                 .guestPhone(booking.getGuest().getPhone())
+                .title(booking.getGuest().getTitle())
+                .occupation(booking.getGuest().getOccupation())
+                .nextOfKinPhone(booking.getGuest().getNextOfKinPhone())
+                .address(booking.getGuest().getAddress())
+                .lga(booking.getGuest().getLga())
+                .nationality(booking.getGuest().getNationality())
+                .stateOfOrigin(booking.getGuest().getStateOfOrigin())
+                .passportNo(booking.getGuest().getPassportNo())
+                .purposeOfVisit(booking.getGuest().getPurposeOfVisit())
+                .arrivingFrom(booking.getGuest().getArrivingFrom())
+                .goingTo(booking.getGuest().getGoingTo())
                 .checkInDate(booking.getCheckInDate())
                 .checkOutDate(booking.getCheckOutDate())
                 .roomNumber(booking.getRoomNumber())

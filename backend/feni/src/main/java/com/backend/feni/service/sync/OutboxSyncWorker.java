@@ -8,9 +8,11 @@ import com.backend.feni.entity.enums.SystemAlertType;
 import com.backend.feni.repository.SystemAlertRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,17 +26,22 @@ public class OutboxSyncWorker {
     private final RestClient restClient;
     private final String cloudApiUrl;
     private final String facilityApiKey;
+    private final ObjectMapper objectMapper;
 
     public OutboxSyncWorker(
             OutboxEventRepository outboxEventRepo,
             SystemAlertRepository systemAlertRepo,
+            ObjectMapper objectMapper,
             @Value("${cloud.sync.url:http://localhost:3000/api/sync/events}") String cloudApiUrl,
             @Value("${cloud.sync.api-key:default-dev-key}") String facilityApiKey) {
         this.outboxEventRepo = outboxEventRepo;
         this.systemAlertRepo = systemAlertRepo;
+        this.objectMapper = objectMapper;
         this.cloudApiUrl = cloudApiUrl;
         this.facilityApiKey = facilityApiKey;
-        this.restClient = RestClient.create();
+        this.restClient = RestClient.builder()
+                .requestFactory(new SimpleClientHttpRequestFactory())
+                .build();
     }
 
     @Scheduled(fixedDelayString = "${cloud.sync.polling-delay:5000}")
@@ -45,11 +52,15 @@ public class OutboxSyncWorker {
         }
 
         try {
+            // Serialize to string to force Content-Length header and prevent chunked transfer
+            String jsonBody = objectMapper.writeValueAsString(pendingEvents);
+            
             // Push events in a single batch array
             restClient.post()
                     .uri(cloudApiUrl)
                     .header("x-facility-api-key", facilityApiKey)
-                    .body(pendingEvents)
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .body(jsonBody)
                     .retrieve()
                     .toBodilessEntity();
 

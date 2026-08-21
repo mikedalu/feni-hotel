@@ -24,20 +24,22 @@ model SyncEvent {
 }
 
 model Booking {
-  id            String   @id
-  facilityId    String
-  totalCost     Decimal  @db.Decimal(10, 2)
-  createdAt     DateTime @default(now())
+  id              String   @id
+  facilityId      String
+  totalCost       Decimal  @db.Decimal(10, 2)
+  processedByName String?
+  createdAt       DateTime @default(now())
 
   @@index([facilityId])
 }
 
 model JournalEntry {
-  id            String   @id
-  facilityId    String
-  entryType     String
-  referenceId   String?
-  createdAt     DateTime @default(now())
+  id              String   @id
+  facilityId      String
+  entryType       String
+  referenceId     String?
+  processedByName String?
+  createdAt       DateTime @default(now())
   
   lines         JournalLine[]
 
@@ -57,6 +59,23 @@ model JournalLine {
 }
 
 
+model Product {
+  id                  String   @id
+  facilityId          String
+  name                String
+  type                String   // 'RAW_GOOD' | 'PREPARED_DISH'
+  internalSku         String?
+  manufacturerBarcode String?
+  price               Decimal  @db.Decimal(10, 2)
+  cost                Decimal  @db.Decimal(10, 2)
+  stockQty            Int?
+  lowStockThreshold   Int?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @default(now()) @updatedAt
+
+  @@index([facilityId])
+}
+
 model CheckinSession {
   sessionId       String   @id
   facilityId      String
@@ -66,4 +85,12 @@ model CheckinSession {
   submittedAt     DateTime?
 
   @@index([facilityId])
+}
+
+model CloudAdminUser {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
 }

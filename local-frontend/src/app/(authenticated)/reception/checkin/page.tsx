@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { useCheckinPolling } from '@/hooks/useCheckinPolling';
 import { QrCodeIcon, CheckCircleIcon, ArrowPathIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
 import { apiClient } from '@/lib/apiClient';
+import { RoomResponse } from '@/types/room';
 
 interface RecoverableSession {
   sessionId: string;
@@ -26,7 +28,61 @@ export default function ReceptionCheckinPage() {
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
+  // Receptionist Inputs
+  const [roomNumber, setRoomNumber] = useState('');
+  const [roomType, setRoomType] = useState('Standard');
+  const [paymentMethod, setPaymentMethod] = useState('POS');
+  const [checkOutDate, setCheckOutDate] = useState(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
+  const [totalCost, setTotalCost] = useState('0');
+  const [systemCalculatedCost, setSystemCalculatedCost] = useState<number>(0);
+
+  const { data: rooms = [] } = useQuery<RoomResponse[]>({
+    queryKey: ['rooms'],
+    queryFn: async () => {
+      const res = await apiClient('/api/proxy/rooms');
+      if (!res.ok) throw new Error('Failed to fetch rooms');
+      const data = await res.json();
+      return data.filter((room: RoomResponse) => room.active);
+    }
+  });
+
+  const availableRooms = rooms.filter(r => r.status === 'AVAILABLE');
+  const availableRoomTypes = Array.from(new Set(availableRooms.map(r => r.roomType)));
+
+  const handleRoomTypeChange = (type: string) => {
+    setRoomType(type);
+    setRoomNumber('');
+    setTotalCost('0');
+    setSystemCalculatedCost(0);
+  };
+
+  const calculateCost = (roomNum: string, outDateStr: string) => {
+    const room = rooms.find(r => r.roomNumber === roomNum);
+    if (room && room.currentPrice) {
+      const inDate = new Date();
+      const outDate = new Date(outDateStr);
+      const diffTime = Math.abs(outDate.getTime() - inDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const nights = diffDays > 0 ? diffDays : 1;
+      const autoCost = room.currentPrice * nights;
+      setSystemCalculatedCost(autoCost);
+      setTotalCost(autoCost.toString());
+    }
+  };
+
+  const handleRoomNumberChange = (num: string) => {
+    setRoomNumber(num);
+    calculateCost(num, checkOutDate);
+  };
+
+  const handleCheckOutDateChange = (date: string) => {
+    setCheckOutDate(date);
+    if (roomNumber) {
+      calculateCost(roomNumber, date);
+    }
+  };
+
   const [recoverableSessions, setRecoverableSessions] = useState<RecoverableSession[]>([]);
   const [recovering, setRecovering] = useState(false);
   const [mockSessionData, setMockSessionData] = useState<RecoverableSession['data'] | null>(null);
@@ -73,11 +129,11 @@ export default function ReceptionCheckinPage() {
         guestEmail: sessionData.guestEmail,
         guestPhone: sessionData.guestPhone,
         checkInDate: new Date().toISOString().split('T')[0],
-        checkOutDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // +1 day mock
-        roomNumber: '101', // Example default since receptionist assigns room
-        roomType: 'Standard',
-        paymentMethod: 'POS',
-        totalCost: 15000,
+        checkOutDate: checkOutDate,
+        roomNumber: roomNumber,
+        roomType: roomType,
+        paymentMethod: paymentMethod,
+        totalCost: Number(totalCost),
         title: sessionData.title,
         occupation: sessionData.occupation,
         nextOfKinPhone: sessionData.nextOfKinPhone,
@@ -306,11 +362,66 @@ export default function ReceptionCheckinPage() {
                       </div>
                     )}
 
-                    <div className="pt-6 border-t border-gray-200">
+                    <div className="pt-6 border-t border-gray-200 space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Room & Payment Assignment</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Room Type</label>
+                          <select value={roomType} onChange={e => handleRoomTypeChange(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                            <option value="">Select a type...</option>
+                            {availableRoomTypes.map(type => (
+                              <option key={type} value={type}>{type}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Room Number</label>
+                          <select 
+                            required 
+                            value={roomNumber} 
+                            onChange={e => handleRoomNumberChange(e.target.value)} 
+                            disabled={!roomType}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100"
+                          >
+                            <option value="">Select a room...</option>
+                            {availableRooms
+                              .filter(r => r.roomType === roomType)
+                              .map(room => (
+                                <option key={room.id} value={room.roomNumber}>
+                                  {room.roomNumber} (₦{room.currentPrice?.toLocaleString()})
+                                </option>
+                              ))
+                            }
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Check-out Date</label>
+                          <input type="date" required value={checkOutDate} min={new Date().toISOString().split('T')[0]} onChange={e => handleCheckOutDateChange(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Payment Method</label>
+                          <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
+                            <option value="POS">Card (POS)</option>
+                            <option value="CASH">Cash</option>
+                            <option value="TRANSFER">Transfer</option>
+                          </select>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 flex justify-between">
+                            <span>Total Cost (₦)</span>
+                            {systemCalculatedCost > 0 && (
+                              <span className="text-gray-500 text-xs">Calculated: ₦{systemCalculatedCost.toLocaleString()}</span>
+                            )}
+                          </label>
+                          <input type="number" required value={totalCost} onChange={e => setTotalCost(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border" />
+                          <p className="text-xs text-gray-500 mt-1">You can override this value manually to apply discounts or promos.</p>
+                        </div>
+                      </div>
+
                       <button
                         onClick={confirmSession}
-                        disabled={confirming}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-colors flex justify-center items-center gap-2"
+                        disabled={confirming || !roomNumber}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-medium shadow-lg transition-colors flex justify-center items-center gap-2 disabled:bg-gray-400"
                       >
                         {confirming ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <CheckCircleIcon className="h-5 w-5" />}
                         Confirm Check-in

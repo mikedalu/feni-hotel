@@ -3,8 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL as string });
 const prisma = new PrismaClient({ adapter });
 
 export async function GET() {
@@ -39,7 +39,7 @@ export async function GET() {
       }
 
       // Sales Revenue is typically credited on a sale
-      if (line.accountName === 'Sales Revenue') {
+      if (line.accountName.startsWith('Sales Revenue')) {
         const amt = Number(line.creditAmount);
         totalRevenue += amt;
         dailyData[dateStr].revenue += amt;

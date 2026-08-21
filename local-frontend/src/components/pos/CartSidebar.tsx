@@ -7,6 +7,7 @@ interface CartSidebarProps {
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
   onCheckout: (paymentMethod: "CASH" | "POS" | "TRANSFER", printerIp: string) => Promise<void>;
+  onPrintPreReceipt: (printerIp: string) => Promise<void>;
   onDownloadInvoice: () => Promise<void>;
   isProcessing: boolean;
 }
@@ -17,6 +18,7 @@ export default function CartSidebar({
   onRemoveItem,
   onClearCart,
   onCheckout,
+  onPrintPreReceipt,
   onDownloadInvoice,
   isProcessing
 }: CartSidebarProps) {
@@ -177,6 +179,20 @@ export default function CartSidebar({
           ) : (
             `Charge ₦${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
           )}
+        </button>
+
+        <button
+          onClick={() => onPrintPreReceipt(printerIp)}
+          disabled={cart.length === 0 || !printerIp || isProcessing}
+          className={`
+            w-full py-3 rounded-xl font-bold text-gray-700 border-2 transition-all
+            ${cart.length === 0 || !printerIp || isProcessing
+              ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-white border-gray-300 hover:bg-gray-50 hover:border-gray-400"
+            }
+          `}
+        >
+          Print Bill (Receipt)
         </button>
 
         <button

@@ -70,4 +70,9 @@ public class ReportController {
         }
         return reportService.getShiftSummaryData(date);
     }
+
+    @GetMapping("/dashboard")
+    public com.backend.feni.dto.response.DashboardStatsResponse getDashboardStats() {
+        return reportService.getDashboardStats(LocalDate.now());
+    }
 }

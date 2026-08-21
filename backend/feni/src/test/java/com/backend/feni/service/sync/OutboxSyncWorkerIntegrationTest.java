@@ -6,6 +6,7 @@ import com.backend.feni.entity.enums.OutboxStatus;
 import com.backend.feni.entity.enums.SystemAlertType;
 import com.backend.feni.repository.OutboxEventRepository;
 import com.backend.feni.repository.SystemAlertRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +58,7 @@ public class OutboxSyncWorkerIntegrationTest {
         RestClient restClient = restClientBuilder.build();
 
         // Re-initialize the worker with our test RestClient
-        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, "http://localhost:3000/api/sync/events", "test-key");
+        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, new ObjectMapper(), "http://localhost:3000/api/sync/events", "test-key");
         org.springframework.test.util.ReflectionTestUtils.setField(worker, "restClient", restClient);
     }
 
