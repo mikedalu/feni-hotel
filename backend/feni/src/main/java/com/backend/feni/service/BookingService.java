@@ -142,11 +142,11 @@ public class BookingService {
         String invoiceUrl = reportService.generateBookingInvoice(booking.getId());
         String fullInvoiceUrl = "http://hotel-hub.local" + invoiceUrl;
 
-        String emailBody = String.format("<h1>Booking Confirmed</h1><p>Dear %s,</p><p>Your booking for room %s from %s to %s is confirmed.</p><p>Please find your official invoice attached to this email.</p><p><a href=\"%s\">Download Invoice Locally (Internal Network Only)</a></p>",
+        String emailBody = String.format("<h1>Booking Confirmed</h1><p>Dear %s,</p><p>Your booking for room %s from %s to %s is confirmed.</p><p>Please find your official receipt attached to this email.</p><p><a href=\"%s\">Download Receipt Locally (Internal Network Only)</a></p>",
                 guest.getFirstName(), booking.getRoomNumber(), booking.getCheckInDate(), booking.getCheckOutDate(), fullInvoiceUrl);
         
         byte[] invoiceBytes = reportService.generateBookingInvoiceBytes(booking.getId());
-        emailSender.sendWithAttachment(guest.getEmail(), "Your Booking Confirmation - Feni Hotel", emailBody, invoiceBytes, "Invoice-" + booking.getRoomNumber() + ".pdf");
+        emailSender.sendWithAttachment(guest.getEmail(), "Your Booking Confirmation - Feni Hotel", emailBody, invoiceBytes, "Receipt-" + booking.getRoomNumber() + ".pdf");
     }
 
     @Transactional

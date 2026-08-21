@@ -271,7 +271,7 @@ public class ReportService {
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
 
-        String documentTitle = "GUEST INVOICE";
+        String documentTitle = "GUEST RECEIPT";
         String invoiceNumber = booking.getId().toString().substring(0, 8).toUpperCase();
         String dateOfIssue = LocalDate.now().toString();
         
