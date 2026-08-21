@@ -16,10 +16,10 @@ export default async function InventoryReportPage() {
   });
 
   const lowStockProducts = products.filter(
-    (p) => p.lowStockThreshold !== null && p.stockQty !== null && p.stockQty <= p.lowStockThreshold
+    (p: any) => p.lowStockThreshold !== null && p.stockQty !== null && p.stockQty <= p.lowStockThreshold
   );
 
-  const totalInventoryValue = products.reduce((acc, p) => {
+  const totalInventoryValue = products.reduce((acc: any, p: any) => {
     return acc + (Number(p.cost) * (p.stockQty || 0));
   }, 0);
 
@@ -78,7 +78,7 @@ export default async function InventoryReportPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {products.map((product) => {
+                {products.map((product: any) => {
                     const isLowStock = product.lowStockThreshold !== null && product.stockQty !== null && product.stockQty <= product.lowStockThreshold;
                     const value = Number(product.cost) * (product.stockQty || 0);
 
@@ -124,7 +124,7 @@ export default async function InventoryReportPage() {
 
             {/* Mobile Cards */}
             <div className="md:hidden grid grid-cols-1 gap-4 p-4 bg-gray-50">
-              {products.map((product) => {
+              {products.map((product: any) => {
                 const isLowStock = product.lowStockThreshold !== null && product.stockQty !== null && product.stockQty <= product.lowStockThreshold;
                 const value = Number(product.cost) * (product.stockQty || 0);
 

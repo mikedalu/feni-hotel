@@ -23,13 +23,13 @@ export default async function StaffActivityPage() {
 
   const staffStats: Record<string, { name: string; bookings: number; revenue: number }> = {};
 
-  bookings.forEach(b => {
+  bookings.forEach((b: any) => {
     const name = b.processedByName || 'System / Unassigned';
     if (!staffStats[name]) staffStats[name] = { name, bookings: 0, revenue: 0 };
     staffStats[name].bookings += 1;
   });
 
-  salesLines.forEach(line => {
+  salesLines.forEach((line: any) => {
     const name = line.journalEntry.processedByName || 'System / Unassigned';
     if (!staffStats[name]) staffStats[name] = { name, bookings: 0, revenue: 0 };
     staffStats[name].revenue += Number(line.creditAmount);

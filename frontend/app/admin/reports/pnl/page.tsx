@@ -28,7 +28,7 @@ export default async function PnLReportPage() {
   let totalRevenueAllTime = 0;
   let totalCogsAllTime = 0;
 
-  lines.forEach((line) => {
+  lines.forEach((line: any) => {
     const date = new Date(line.journalEntry.createdAt);
     const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     
