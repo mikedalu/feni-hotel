@@ -45,6 +45,7 @@ services:
     container_name: feni-frontend
     environment:
       - NODE_ENV=production
+      - NEXT_PUBLIC_CLOUD_URL=${CLOUD_FRONTEND_URL:-https://feni-hotel-test.vercel.app}
     ports:
       - "3000:3000"
     depends_on:

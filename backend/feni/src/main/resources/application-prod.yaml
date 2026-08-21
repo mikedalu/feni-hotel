@@ -25,3 +25,9 @@ springdoc:
 storage:
   local:
     path: ${STORAGE_LOCAL_PATH:./uploads}
+
+cloud:
+  sync:
+    url: ${CLOUD_SYNC_URL}
+    api-key: ${CLOUD_SYNC_API_KEY}
+    polling-delay: 5000

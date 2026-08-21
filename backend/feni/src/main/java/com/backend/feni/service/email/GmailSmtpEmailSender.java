@@ -36,4 +36,25 @@ public class GmailSmtpEmailSender implements EmailSender {
             log.error("Failed to send email to: {}", to, e);
         }
     }
+
+    @Async
+    @Override
+    public void sendWithAttachment(String to, String subject, String htmlBody, byte[] attachmentData, String attachmentName) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true); // true indicates html
+            
+            org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(attachmentData);
+            helper.addAttachment(attachmentName, resource);
+            
+            mailSender.send(message);
+            log.info("Email with attachment {} sent successfully to: {}", attachmentName, to);
+        } catch (Exception e) {
+            log.error("Failed to send email with attachment to: {}", to, e);
+        }
+    }
 }

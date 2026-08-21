@@ -231,7 +231,10 @@ public class ReportService {
     }
 
     public String generatePosInvoice(PosSaleRequest request) {
-        String title = "INVOICE - FENI HOTEL";
+        String documentTitle = "GUEST RECEIPT";
+        String invoiceNumber = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String dateOfIssue = LocalDate.now().toString();
+        
         String[] headers = { "S/N", "ITEM", "QTY", "UNIT PRICE", "TOTAL" };
         List<String[]> rows = new ArrayList<>();
 
@@ -256,29 +259,46 @@ public class ReportService {
             });
         }
 
-        rows.add(new String[] { "", "", "", "GRAND TOTAL", "$" + grandTotal.toString() });
+        byte[] pdfBytes = pdfService.generateEnterpriseInvoicePdf(
+                documentTitle, invoiceNumber, dateOfIssue, 
+                null, headers, rows, 
+                "$" + grandTotal.toString(), "$" + grandTotal.toString(), request.getPaymentMethod().name());
 
-        return savePdf(pdfService.generateTablePdf(title, headers, rows));
+        return savePdf(pdfBytes);
     }
 
-    public String generateBookingInvoice(UUID bookingId) {
+    public byte[] generateBookingInvoiceBytes(UUID bookingId) {
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
 
-        String title = "BOOKING INVOICE - FENI HOTEL";
-        StringBuilder content = new StringBuilder();
-        content.append("Guest Name: ").append(booking.getGuest().getFirstName()).append(" ")
-                .append(booking.getGuest().getLastName()).append("\n");
-        content.append("Room Number: ").append(booking.getRoomNumber()).append("\n");
-        content.append("Room Type: ").append(booking.getRoomType()).append("\n");
-        content.append("Check-in Date: ").append(booking.getCheckInDate()).append("\n");
-        content.append("Check-out Date: ").append(booking.getCheckOutDate()).append("\n");
-        content.append("Payment Method: ").append(booking.getPaymentMethod()).append("\n");
-        content.append("----------------------------\n");
-        content.append("Total Cost: $").append(booking.getTotalCost()).append("\n");
+        String documentTitle = "GUEST INVOICE";
+        String invoiceNumber = booking.getId().toString().substring(0, 8).toUpperCase();
+        String dateOfIssue = LocalDate.now().toString();
+        
+        String guestDetails = booking.getGuest().getFirstName() + " " + booking.getGuest().getLastName() + "\n" +
+                              booking.getGuest().getEmail() + "\n" + booking.getGuest().getPhone();
+        
+        String[] headers = { "S/N", "DESCRIPTION", "CHECK IN", "CHECK OUT", "AMOUNT" };
+        List<String[]> rows = new ArrayList<>();
+        
+        rows.add(new String[] {
+                "1", 
+                "Room Stay: " + booking.getRoomType() + " (" + booking.getRoomNumber() + ")",
+                booking.getCheckInDate().toString(),
+                booking.getCheckOutDate().toString(),
+                "$" + booking.getTotalCost().toString()
+        });
 
-        byte[] pdfBytes = pdfService.generateSimpleTextPdf(title, content.toString());
-        return savePdf(pdfBytes);
+        return pdfService.generateEnterpriseInvoicePdf(
+                documentTitle, invoiceNumber, dateOfIssue, 
+                guestDetails, headers, rows, 
+                "$" + booking.getTotalCost().toString(), 
+                "$" + booking.getTotalCost().toString(), 
+                booking.getPaymentMethod().name());
+    }
+
+    public String generateBookingInvoice(UUID bookingId) {
+        return savePdf(generateBookingInvoiceBytes(bookingId));
     }
 
     public byte[] generateMonthlyPnlBytes(int year, int month) {

@@ -28,7 +28,7 @@ spring:
 cloud:
   sync:
     url: ${CLOUD_SYNC_URL:http://host.docker.internal:3001/api/sync/events}
-    api-key: "default-dev-key"
+    api-key: ${CLOUD_SYNC_API_KEY:default-dev-key}
     polling-delay: 5000
 
 jwt:

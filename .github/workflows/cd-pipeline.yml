@@ -76,6 +76,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_CLOUD_URL=${{ secrets.CLOUD_FRONTEND_URL }}
 
   deploy-to-facility:
     needs: [build-and-push-backend, build-and-push-frontend]

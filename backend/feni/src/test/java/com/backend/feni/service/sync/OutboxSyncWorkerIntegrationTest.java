@@ -41,6 +41,9 @@ public class OutboxSyncWorkerIntegrationTest {
     @Autowired
     private SystemAlertRepository systemAlertRepo;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @MockitoBean
     private OutboxSyncWorker scheduledWorkerBean;
 
@@ -58,7 +61,7 @@ public class OutboxSyncWorkerIntegrationTest {
         RestClient restClient = restClientBuilder.build();
 
         // Re-initialize the worker with our test RestClient
-        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, new ObjectMapper(), "http://localhost:3000/api/sync/events", "test-key");
+        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, objectMapper, "http://localhost:3000/api/sync/events", "test-key");
         org.springframework.test.util.ReflectionTestUtils.setField(worker, "restClient", restClient);
     }
 

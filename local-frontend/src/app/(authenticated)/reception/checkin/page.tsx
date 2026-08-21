@@ -194,7 +194,8 @@ export default function ReceptionCheckinPage() {
     }
   };
 
-  const checkinUrl = sessionId ? `${process.env.NEXT_PUBLIC_CLOUD_URL}/checkin/${sessionId}` : '';
+  const baseUrl = process.env.NEXT_PUBLIC_CLOUD_URL || 'https://feni-hotel-test.vercel.app';
+  const checkinUrl = sessionId ? `${baseUrl}/checkin/${sessionId}` : '';
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
