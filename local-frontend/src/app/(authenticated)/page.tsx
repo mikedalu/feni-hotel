@@ -163,7 +163,9 @@ export default function Home() {
                 <div className="p-4 border border-gray-100 rounded-xl flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500">Inventory Value</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">₦ {isLoading ? '...' : stats?.inventoryValue?.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                      ₦ {isLoading ? '...' : stats?.inventoryValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                   <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
                     <CurrencyDollarIcon className="h-6 w-6" />

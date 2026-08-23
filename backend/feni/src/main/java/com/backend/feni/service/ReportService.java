@@ -159,6 +159,10 @@ public class ReportService {
                 int invSn = 1;
                 BigDecimal totalInventoryValue = BigDecimal.ZERO;
 
+                java.text.NumberFormat nf = java.text.NumberFormat.getInstance(java.util.Locale.US);
+                nf.setMinimumFractionDigits(2);
+                nf.setMaximumFractionDigits(2);
+
                 for (Product p : products) {
                     if (p.getType() == com.backend.feni.entity.enums.ProductType.RAW_GOOD) {
                         String status = "OK";
@@ -177,14 +181,14 @@ public class ReportService {
                                 p.getInternalSku(),
                                 p.getName(),
                                 String.valueOf(p.getStockQty()),
-                                p.getUnitCost().toString(),
-                                totalValue.toString(),
+                                "₦" + nf.format(p.getUnitCost()),
+                                "₦" + nf.format(totalValue),
                                 status
                         });
                     }
                 }
 
-                invRows.add(new String[] { "", "", "TOTAL VALUATION", "", "", totalInventoryValue.toString(), "" });
+                invRows.add(new String[] { "", "", "TOTAL VALUATION", "", "", "₦" + nf.format(totalInventoryValue), "" });
                 return savePdf(pdfService.generateTablePdf(title, invHeaders, invRows));
 
             case "staff-activity":
