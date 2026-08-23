@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
 
 env:
   REGISTRY: ghcr.io
@@ -79,15 +80,4 @@ jobs:
           build-args: |
             NEXT_PUBLIC_CLOUD_URL=${{ secrets.CLOUD_FRONTEND_URL }}
 
-  deploy-to-facility:
-    needs: [build-and-push-backend, build-and-push-frontend]
-    runs-on: self-hosted
-    steps:
-      - name: Trigger Facility Server Webhook
-        run: |
-          curl -k -X POST -H "Authorization: Bearer ${{ secrets.FACILITY_WEBHOOK_SECRET }}" \
-          -H "Content-Type: application/json" \
-          -d '{"action":"deploy", "backend_image":"${{ env.REGISTRY }}/${{ github.repository }}-backend:latest", "frontend_image":"${{ env.REGISTRY }}/${{ github.repository }}-frontend:latest"}' \
-          https://hotel-hub.local/api/webhooks/deploy
-          
-          # NOTE: The hotel-hub.local domain is used for the self-hosted runner on the facility server.
+
