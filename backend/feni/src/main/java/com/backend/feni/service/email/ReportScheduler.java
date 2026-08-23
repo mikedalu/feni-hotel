@@ -23,9 +23,6 @@ public class ReportScheduler {
     private final EmailSender emailSender;
     private final FacilityRepository facilityRepo;
 
-    @Value("${email.admin-address:admin@feni.local}")
-    private String adminEmail;
-
     /**
      * Runs on the 1st day of every month at 8:00 AM.
      * Generates the P&L for the previous month, uploads it to R2, and emails the Admin.
@@ -52,6 +49,8 @@ public class ReportScheduler {
                 "<p>Hello,</p><p>The Monthly P&L report for %s %s is ready.</p><p>You can download it here: <a href=\"%s\">Download PDF</a></p>",
                 previousMonth.getMonth(), year, reportUrl
             );
+            
+            String adminEmail = facility.getAdminEmail() != null ? facility.getAdminEmail() : "admin@feni.local";
             emailSender.send(adminEmail, subject, htmlBody);
             log.info("Successfully generated and emailed Monthly P&L for {} {}", previousMonth.getMonth(), year);
             

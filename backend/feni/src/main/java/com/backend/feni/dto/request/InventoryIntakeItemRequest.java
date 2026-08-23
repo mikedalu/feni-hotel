@@ -11,4 +11,8 @@ public class InventoryIntakeItemRequest {
 
     @Min(1)
     private int quantity;
+
+    private boolean isBulkIntake;
+    
+    private java.math.BigDecimal totalCost;
 }

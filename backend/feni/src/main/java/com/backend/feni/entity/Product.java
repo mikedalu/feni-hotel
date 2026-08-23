@@ -56,6 +56,23 @@ public class Product {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal unitCost;
 
+    // Unit of Measure (UoM) fields
+    private String baseUnit; // e.g., "Bottle", "Portion"
+    private String bulkUnit; // e.g., "Carton", "Crate"
+    
+    @Column(nullable = false, columnDefinition = "integer default 1")
+    @Builder.Default
+    private Integer conversionRatio = 1; // e.g., 24 (1 Carton = 24 Bottles)
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "product_tax_brackets",
+        joinColumns = @JoinColumn(name = "product_id"),
+        inverseJoinColumns = @JoinColumn(name = "tax_bracket_id")
+    )
+    @Builder.Default
+    private java.util.Set<TaxBracket> taxBrackets = new java.util.HashSet<>();
+
     public boolean hasManufacturerBarcode() {
         return manufacturerBarcode != null && !manufacturerBarcode.trim().isEmpty();
     }

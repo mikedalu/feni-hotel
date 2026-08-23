@@ -27,9 +27,12 @@ public class BookingResponse {
     private String nationality;
     private String stateOfOrigin;
     private String passportNo;
+    private String nin;
     private String purposeOfVisit;
     private String arrivingFrom;
     private String goingTo;
+    
+    private String idScanUrl;
     
     private LocalDate checkInDate;
     private LocalDate checkOutDate;

@@ -23,20 +23,27 @@ public class OutboxSyncWorker {
 
     private final OutboxEventRepository outboxEventRepo;
     private final SystemAlertRepository systemAlertRepo;
+    private final com.backend.feni.repository.FacilityRepository facilityRepo;
     private final RestClient restClient;
     private final String cloudApiUrl;
     private final String facilityApiKey;
     private final ObjectMapper objectMapper;
 
+    private final com.backend.feni.service.email.EmailSender emailSender;
+
     public OutboxSyncWorker(
             OutboxEventRepository outboxEventRepo,
             SystemAlertRepository systemAlertRepo,
             ObjectMapper objectMapper,
+            com.backend.feni.repository.FacilityRepository facilityRepo,
+            com.backend.feni.service.email.EmailSender emailSender,
             @Value("${cloud.sync.url:http://localhost:3000/api/sync/events}") String cloudApiUrl,
             @Value("${cloud.sync.api-key:default-dev-key}") String facilityApiKey) {
         this.outboxEventRepo = outboxEventRepo;
         this.systemAlertRepo = systemAlertRepo;
         this.objectMapper = objectMapper;
+        this.facilityRepo = facilityRepo;
+        this.emailSender = emailSender;
         this.cloudApiUrl = cloudApiUrl;
         this.facilityApiKey = facilityApiKey;
         this.restClient = RestClient.builder()
@@ -110,6 +117,14 @@ public class OutboxSyncWorker {
                                     .build();
                             systemAlertRepo.save(alert);
                             log.info("Created new SYNC_FAILURE SystemAlert.");
+                            
+                            // Send Ops Alert Email
+                            String subject = "URGENT: Cloud Sync Failing";
+                            String htmlBody = "<p>The local facility server has been unable to sync data to the cloud for over 100 consecutive attempts.</p><p>Please investigate network connectivity or cloud service health immediately.</p>";
+                            String adminEmail = facilityRepo.findAll().stream().findFirst()
+                                    .map(com.backend.feni.entity.Facility::getAdminEmail)
+                                    .orElse("admin@feni.local");
+                            emailSender.send(adminEmail, subject, htmlBody);
                         }
                 );
     }

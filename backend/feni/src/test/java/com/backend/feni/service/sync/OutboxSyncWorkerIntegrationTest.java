@@ -9,9 +9,9 @@ import com.backend.feni.repository.SystemAlertRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -20,8 +20,13 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.client.RestClient;
 
+import org.springframework.web.client.RestClient;
+
 import java.util.List;
 import java.util.UUID;
+import com.backend.feni.repository.FacilityRepository;
+import com.backend.feni.service.email.EmailSender;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -44,6 +49,12 @@ public class OutboxSyncWorkerIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private FacilityRepository facilityRepo;
+
+    @MockitoBean
+    private EmailSender emailSender;
+
     @MockitoBean
     private OutboxSyncWorker scheduledWorkerBean;
 
@@ -60,8 +71,10 @@ public class OutboxSyncWorkerIntegrationTest {
         mockServer = MockRestServiceServer.bindTo(restClientBuilder).build();
         RestClient restClient = restClientBuilder.build();
 
+
+
         // Re-initialize the worker with our test RestClient
-        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, objectMapper, "http://localhost:3000/api/sync/events", "test-key");
+        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, objectMapper, facilityRepo, emailSender, "http://localhost:3000/api/sync/events", "test-key");
         org.springframework.test.util.ReflectionTestUtils.setField(worker, "restClient", restClient);
     }
 

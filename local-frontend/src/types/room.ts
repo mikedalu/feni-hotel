@@ -17,3 +17,14 @@ export interface RoomRequest {
 export interface RoomStatusUpdateRequest {
   status: 'AVAILABLE' | 'OCCUPIED' | 'DIRTY' | 'OUT_OF_ORDER';
 }
+
+export interface RoomTypeResponse {
+  id: string;
+  name: string;
+  basePrice: number;
+}
+
+export interface RoomTypeRequest {
+  name: string;
+  basePrice: number;
+}

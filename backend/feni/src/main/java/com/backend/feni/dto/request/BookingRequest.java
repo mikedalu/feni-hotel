@@ -58,6 +58,7 @@ public class BookingRequest {
     private String nationality;
     private String stateOfOrigin;
     private String passportNo;
+    private String nin;
     private String purposeOfVisit;
     private String arrivingFrom;
     private String goingTo;

@@ -36,6 +36,18 @@ public class ReportController {
         return new ReportResponse(url);
     }
 
+    @PostMapping("/pnl/generate")
+    public ReportResponse generatePnl(
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        
+        if (startDate == null) startDate = LocalDate.now().withDayOfMonth(1);
+        if (endDate == null) endDate = LocalDate.now();
+        
+        String url = reportService.generateProfitAndLossReport(startDate, endDate);
+        return new ReportResponse(url);
+    }
+
     @PostMapping("/pos-invoice/generate")
     public ReportResponse generatePosInvoice(@RequestBody @Valid PosSaleRequest request) {
         String url = reportService.generatePosInvoice(request);

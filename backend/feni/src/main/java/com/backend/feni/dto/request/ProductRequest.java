@@ -39,4 +39,10 @@ public class ProductRequest {
     @NotNull(message = "Unit cost is required")
     @PositiveOrZero(message = "Unit cost must be zero or positive")
     private BigDecimal unitCost;
+
+    private String baseUnit;
+    private String bulkUnit;
+    
+    @PositiveOrZero(message = "Conversion ratio must be positive")
+    private Integer conversionRatio;
 }

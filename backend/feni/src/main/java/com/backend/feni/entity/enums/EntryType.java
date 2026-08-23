@@ -4,5 +4,7 @@ public enum EntryType {
     SALE,
     INVENTORY_INTAKE,
     BOOKING_PAYMENT,
-    VOID_SALE
+    VOID_SALE,
+    INCIDENTAL_DEPOSIT,
+    INCIDENTAL_REFUND
 }

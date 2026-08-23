@@ -31,6 +31,12 @@ class OutboxSyncWorkerTest {
 
     @Mock
     private RestClient restClient;
+    
+    @Mock
+    private com.backend.feni.repository.FacilityRepository facilityRepo;
+    
+    @Mock
+    private com.backend.feni.service.email.EmailSender emailSender;
 
     @Mock
     private RestClient.RequestBodyUriSpec requestBodyUriSpec;
@@ -55,7 +61,7 @@ class OutboxSyncWorkerTest {
         when(requestBodySpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.toBodilessEntity()).thenReturn(ResponseEntity.ok().build());
         
-        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, new ObjectMapper(), "http://dummy", "dummy-key");
+        worker = new OutboxSyncWorker(outboxEventRepo, systemAlertRepo, new ObjectMapper(), facilityRepo, emailSender, "http://dummy", "dummy-key");
         org.springframework.test.util.ReflectionTestUtils.setField(worker, "restClient", restClient);
     }
 

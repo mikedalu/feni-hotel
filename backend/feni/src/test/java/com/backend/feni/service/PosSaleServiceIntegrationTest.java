@@ -94,7 +94,10 @@ public class PosSaleServiceIntegrationTest {
 
         PosSaleRequest saleReq = new PosSaleRequest();
         saleReq.setItems(List.of(itemReq));
-        saleReq.setPaymentMethod(com.backend.feni.entity.enums.PaymentMethod.CASH);
+        PosSaleRequest.SplitTenderRequest splitTender = new PosSaleRequest.SplitTenderRequest();
+        splitTender.setPaymentMethod(com.backend.feni.entity.enums.PaymentMethod.CASH);
+        splitTender.setAmount(new BigDecimal("10.00"));
+        saleReq.setSplitTenders(List.of(splitTender));
 
         // Act
         posSaleService.completeSale(saleReq, staff.getId());

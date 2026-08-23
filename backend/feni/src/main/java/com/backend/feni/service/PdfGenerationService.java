@@ -272,7 +272,7 @@ public class PdfGenerationService {
             
             PdfPCell taxLbl = new PdfPCell(new Phrase("Tax:", labelFont));
             taxLbl.setBorder(PdfPCell.NO_BORDER); taxLbl.setHorizontalAlignment(Element.ALIGN_RIGHT); taxLbl.setPaddingBottom(5f);
-            PdfPCell taxVal = new PdfPCell(new Phrase("$0.00", valueFont));
+            PdfPCell taxVal = new PdfPCell(new Phrase("₦0.00", valueFont));
             taxVal.setBorder(PdfPCell.NO_BORDER); taxVal.setHorizontalAlignment(Element.ALIGN_RIGHT); taxVal.setPaddingBottom(5f);
             rightTotalsGrid.addCell(taxLbl); rightTotalsGrid.addCell(taxVal);
             

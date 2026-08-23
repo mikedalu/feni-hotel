@@ -12,9 +12,11 @@ export interface BookingResponse {
   nationality?: string;
   stateOfOrigin?: string;
   passportNo?: string;
+  nin?: string;
   purposeOfVisit?: string;
   arrivingFrom?: string;
   goingTo?: string;
+  idScanUrl?: string;
   checkInDate: string;
   checkOutDate: string;
   roomNumber: string;
@@ -22,7 +24,7 @@ export interface BookingResponse {
   checkInTime: string;
   paymentMethod: string;
   totalCost: number;
-  status: 'RESERVED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED';
+  status: 'RESERVED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'OVERDUE';
   createdAt: string;
   processedByUsername: string;
   priceOverrideReason?: string;
@@ -51,6 +53,7 @@ export interface BookingRequest {
   nationality?: string;
   stateOfOrigin?: string;
   passportNo?: string;
+  nin?: string;
   purposeOfVisit?: string;
   arrivingFrom?: string;
   goingTo?: string;
@@ -63,5 +66,11 @@ export interface ChangeRoomRequest {
   newRoomNumber: string;
   newRoomType: string;
   newTotalCost: number;
+  paymentMethod: string;
+}
+
+export interface ExtendBookingRequest {
+  newCheckOutDate: string;
+  additionalCost: number;
   paymentMethod: string;
 }

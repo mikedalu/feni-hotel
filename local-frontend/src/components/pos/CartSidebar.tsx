@@ -6,7 +6,7 @@ interface CartSidebarProps {
   onUpdateQuantity: (productId: string, delta: number) => void;
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
-  onCheckout: (paymentMethod: "CASH" | "POS" | "TRANSFER", printerIp: string) => Promise<void>;
+  onCheckout: () => void;
   onPrintPreReceipt: (printerIp: string) => Promise<void>;
   onDownloadInvoice: () => Promise<void>;
   isProcessing: boolean;
@@ -22,7 +22,7 @@ export default function CartSidebar({
   onDownloadInvoice,
   isProcessing
 }: CartSidebarProps) {
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "POS" | "TRANSFER">("CASH");
+
   const [printerIp, setPrinterIp] = useState<string>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("feni_pos_printer_ip") || "";
@@ -127,38 +127,8 @@ export default function CartSidebar({
           </span>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-700 block">Payment Method</label>
-          <div className="grid grid-cols-3 gap-2">
-            {(["CASH", "POS", "TRANSFER"] as const).map(method => (
-              <button
-                key={method}
-                onClick={() => setPaymentMethod(method)}
-                className={`py-3 rounded-lg font-bold text-sm transition-colors ${
-                  paymentMethod === method 
-                    ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-600 ring-offset-2" 
-                    : "bg-white border-2 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {method}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-gray-700 block">Printer IP (Optional)</label>
-          <input 
-            type="text" 
-            placeholder="192.168.1.100" 
-            value={printerIp}
-            onChange={(e) => handlePrinterIpChange(e.target.value)}
-            className="w-full border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-blue-500 outline-none transition-colors"
-          />
-        </div>
-
         <button
-          onClick={() => onCheckout(paymentMethod, printerIp)}
+          onClick={() => onCheckout()}
           disabled={cart.length === 0 || isProcessing}
           className={`
             w-full py-4 rounded-xl font-bold text-lg text-white transition-all shadow-lg
@@ -168,18 +138,19 @@ export default function CartSidebar({
             }
           `}
         >
-          {isProcessing ? (
-            <span className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Processing Sale...
-            </span>
-          ) : (
-            `Charge ₦${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-          )}
+          {isProcessing ? "Processing..." : "Proceed to Checkout"}
         </button>
+
+        <div className="space-y-2 mt-4 pt-4 border-t">
+          <label className="text-sm font-bold text-gray-700 block">Printer IP (For Bills)</label>
+          <input 
+            type="text" 
+            placeholder="192.168.1.100" 
+            value={printerIp}
+            onChange={(e) => handlePrinterIpChange(e.target.value)}
+            className="w-full border-2 border-gray-200 rounded-lg px-4 py-2 focus:border-blue-500 outline-none transition-colors"
+          />
+        </div>
 
         <button
           onClick={() => onPrintPreReceipt(printerIp)}

@@ -26,6 +26,9 @@ export default function ProductsPage() {
     lowStockThreshold: 5,
     price: 0,
     unitCost: 0,
+    baseUnit: 'Bottle',
+    bulkUnit: 'Carton',
+    conversionRatio: 1,
   });
 
   const fetchProducts = async () => {
@@ -67,6 +70,9 @@ export default function ProductsPage() {
         lowStockThreshold: 5,
         price: 0,
         unitCost: 0,
+        baseUnit: 'Bottle',
+        bulkUnit: 'Carton',
+        conversionRatio: 1,
       });
     }
     setIsModalOpen(true);
@@ -141,8 +147,8 @@ export default function ProductsPage() {
             {
               accessorKey: 'price',
               header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
-              cell: ({ row }) => `$${(row.getValue('price') as number).toFixed(2)}`,
-              meta: { exportValue: (p: Product) => `$${p.price.toFixed(2)}` }
+            cell: ({ row }) => `₦${(row.getValue('price') as number).toFixed(2)}`,
+            meta: { exportValue: (p: Product) => `₦${p.price.toFixed(2)}` }
             },
             {
               accessorKey: 'stockQty',
@@ -231,6 +237,26 @@ export default function ProductsPage() {
                   <input required type="number" step="0.01" min="0" value={formData.unitCost} onChange={e => setFormData({...formData, unitCost: parseFloat(e.target.value)})} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
                 </div>
               </div>
+
+              {formData.type === 'RAW_GOOD' && (
+                <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 space-y-4">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Unit of Measure (UoM)</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Base Unit <span className="text-gray-400 text-xs font-normal" title="The single unit you sell (e.g. Bottle)">ⓘ</span></label>
+                      <input type="text" placeholder="e.g. Bottle, Can" value={formData.baseUnit || ''} onChange={e => setFormData({...formData, baseUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bulk Unit <span className="text-gray-400 text-xs font-normal" title="The larger unit you receive from suppliers (e.g. Carton)">ⓘ</span></label>
+                      <input type="text" placeholder="e.g. Carton, Crate" value={formData.bulkUnit || ''} onChange={e => setFormData({...formData, bulkUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Conversion Ratio <span className="text-gray-400 text-xs font-normal" title="How many Base Units are in 1 Bulk Unit? (e.g. 24 Bottles in 1 Carton)">ⓘ</span></label>
+                      <input type="number" min="1" value={formData.conversionRatio || 1} onChange={e => setFormData({...formData, conversionRatio: parseInt(e.target.value) || 1})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {formData.type === 'RAW_GOOD' && (
                 <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">

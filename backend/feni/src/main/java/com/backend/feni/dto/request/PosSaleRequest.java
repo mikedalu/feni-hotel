@@ -14,9 +14,21 @@ public class PosSaleRequest {
     @NotEmpty
     private List<PosSaleItemRequest> items;
 
-    @NotNull
-    private PaymentMethod paymentMethod;
+    @Valid
+    @NotEmpty
+    private List<SplitTenderRequest> splitTenders;
 
     // Optional printer IP to send the receipt to. If null, no receipt is printed.
     private String printerIp;
+
+    @Data
+    public static class SplitTenderRequest {
+        @NotNull
+        private PaymentMethod paymentMethod;
+
+        @NotNull
+        private java.math.BigDecimal amount;
+
+        private java.util.UUID smartPosTerminalId;
+    }
 }

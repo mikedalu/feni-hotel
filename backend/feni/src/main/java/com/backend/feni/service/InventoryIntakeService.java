@@ -62,18 +62,32 @@ public class InventoryIntakeService {
                 throw new IllegalArgumentException("Cannot intake inventory for non-raw goods: " + product.getName());
             }
 
-            product.setStockQty((product.getStockQty() == null ? 0 : product.getStockQty()) + itemReq.getQuantity());
+            int effectiveQuantity = itemReq.getQuantity();
+            if (itemReq.isBulkIntake()) {
+                effectiveQuantity = itemReq.getQuantity() * (product.getConversionRatio() != null ? product.getConversionRatio() : 1);
+            }
 
-            BigDecimal lineValue = product.getUnitCost().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            product.setStockQty((product.getStockQty() == null ? 0 : product.getStockQty()) + effectiveQuantity);
+
+            BigDecimal lineValue;
+            if (itemReq.getTotalCost() != null) {
+                lineValue = itemReq.getTotalCost();
+                if (effectiveQuantity > 0) {
+                    BigDecimal newUnitCost = itemReq.getTotalCost().divide(BigDecimal.valueOf(effectiveQuantity), 2, java.math.RoundingMode.HALF_UP);
+                    product.setUnitCost(newUnitCost);
+                }
+            } else {
+                lineValue = product.getUnitCost().multiply(BigDecimal.valueOf(effectiveQuantity));
+            }
+
             totalInventoryValue = totalInventoryValue.add(lineValue);
 
             productRepo.save(product);
             updatedProducts.add(product);
 
-            // Print labels async if printer IP provided and product needs an internal SKU sticker
             if (request.getPrinterIp() != null && !request.getPrinterIp().isEmpty()) {
                 if (!product.hasManufacturerBarcode()) {
-                    printerService.printInventoryLabelsAsync(product, itemReq.getQuantity(), request.getPrinterIp());
+                    printerService.printInventoryLabelsAsync(product, effectiveQuantity, request.getPrinterIp());
                 }
             }
         }

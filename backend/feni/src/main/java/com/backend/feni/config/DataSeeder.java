@@ -6,9 +6,11 @@ import com.backend.feni.entity.Product;
 import com.backend.feni.entity.enums.Role;
 import com.backend.feni.entity.enums.ProductType;
 import com.backend.feni.entity.enums.RevenueCenter;
+import com.backend.feni.entity.RoomType;
 import com.backend.feni.repository.FacilityRepository;
 import com.backend.feni.repository.StaffUserRepository;
 import com.backend.feni.repository.ProductRepository;
+import com.backend.feni.repository.RoomTypeRepository;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,7 @@ public class DataSeeder implements CommandLineRunner {
     private final FacilityRepository facilityRepo;
     private final StaffUserRepository staffUserRepo;
     private final ProductRepository productRepo;
+    private final RoomTypeRepository roomTypeRepo;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${bootstrap.facility.name}")
@@ -47,6 +50,19 @@ public class DataSeeder implements CommandLineRunner {
         seedFacility();
         seedAdmin();
         seedProducts();
+        seedRoomTypes();
+    }
+
+    private void seedRoomTypes() {
+        if (roomTypeRepo.count() > 0) {
+            return;
+        }
+        
+        roomTypeRepo.save(RoomType.builder().name("Standard").basePrice(new BigDecimal("15000")).build());
+        roomTypeRepo.save(RoomType.builder().name("Deluxe").basePrice(new BigDecimal("25000")).build());
+        roomTypeRepo.save(RoomType.builder().name("Suite").basePrice(new BigDecimal("50000")).build());
+        
+        log.info("Seeded default room types.");
     }
 
     private void seedFacility() {

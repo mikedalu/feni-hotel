@@ -12,4 +12,7 @@ export interface Product {
   lowStockThreshold?: number;
   price: number;
   unitCost: number;
+  baseUnit?: string;
+  bulkUnit?: string;
+  conversionRatio?: number;
 }

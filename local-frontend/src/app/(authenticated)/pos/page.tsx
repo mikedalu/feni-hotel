@@ -6,6 +6,7 @@ import { Product, CartItem, PosSaleRequest } from "@/types/pos";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import ProductGrid from "@/components/pos/ProductGrid";
 import CartSidebar from "@/components/pos/CartSidebar";
+import CheckoutModal from "@/components/pos/CheckoutModal";
 import { apiClient } from "@/lib/apiClient";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -13,6 +14,18 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [printerIp, setPrinterIp] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("feni_pos_printer_ip") || "";
+    }
+    return "";
+  });
+
+  const handlePrinterIpChange = (val: string) => {
+    setPrinterIp(val);
+    localStorage.setItem("feni_pos_printer_ip", val);
+  };
 
   const { data: products = [], isLoading, error } = useQuery<Product[]>({
     queryKey: ["products"],
@@ -74,17 +87,17 @@ export default function POSPage() {
     }
   });
 
-  const handleCheckout = async (paymentMethod: "CASH" | "POS" | "TRANSFER", printerIp: string) => {
+  const handleCheckout = async (splitTenders: any[], selectedPrinterIp: string) => {
     if (cart.length === 0) return;
     setIsProcessing(true);
 
-    const request: PosSaleRequest = {
+    const request = {
       items: cart.map(item => ({
         skuOrBarcode: item.internalSku,
         quantity: item.cartQuantity
       })),
-      paymentMethod,
-      printerIp: printerIp.trim() || undefined
+      splitTenders,
+      printerIp: selectedPrinterIp.trim() || undefined
     };
 
     try {
@@ -110,6 +123,7 @@ export default function POSPage() {
       }
       
       setCart([]);
+      setIsCheckoutModalOpen(false);
       toast.success("Sale completed successfully!");
     } catch (err: any) {
       console.error(err);
@@ -269,12 +283,22 @@ export default function POSPage() {
           onUpdateQuantity={updateQuantity}
           onRemoveItem={removeItem}
           onClearCart={() => setCart([])}
-          onCheckout={handleCheckout}
+          onCheckout={() => setIsCheckoutModalOpen(true)}
           onPrintPreReceipt={handlePrintPreReceipt}
           onDownloadInvoice={handleDownloadInvoice}
           isProcessing={isProcessing}
         />
       </aside>
+
+      <CheckoutModal 
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        total={cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0)}
+        onConfirm={handleCheckout}
+        printerIp={printerIp}
+        setPrinterIp={handlePrinterIpChange}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 }

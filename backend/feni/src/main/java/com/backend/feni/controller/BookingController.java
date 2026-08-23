@@ -2,6 +2,8 @@ package com.backend.feni.controller;
 
 import com.backend.feni.dto.request.BookingRequest;
 import com.backend.feni.dto.request.ChangeRoomRequest;
+import com.backend.feni.dto.request.ExtendBookingRequest;
+import com.backend.feni.dto.request.IncidentalDepositRequest;
 import com.backend.feni.dto.response.BookingResponse;
 import com.backend.feni.service.BookingService;
 import jakarta.validation.Valid;
@@ -33,6 +35,11 @@ public class BookingController {
         return bookingService.getAllBookings();
     }
 
+    @GetMapping("/{id}")
+    public BookingResponse getBookingById(@PathVariable UUID id) {
+        return bookingService.getBookingById(id);
+    }
+
     @PostMapping("/{id}/checkout")
     public void checkoutBooking(@PathVariable UUID id) {
         bookingService.checkoutBooking(id);
@@ -42,5 +49,23 @@ public class BookingController {
     public void changeRoom(@PathVariable UUID id, @Valid @RequestBody ChangeRoomRequest request, @AuthenticationPrincipal Jwt jwt) {
         UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
         bookingService.changeRoom(id, request, staffId);
+    }
+
+    @PostMapping("/{id}/extend")
+    public void extendBooking(@PathVariable UUID id, @Valid @RequestBody ExtendBookingRequest request, @AuthenticationPrincipal Jwt jwt) {
+        UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
+        bookingService.extendBooking(id, request, staffId);
+    }
+
+    @PostMapping("/{id}/deposit")
+    public void addDeposit(@PathVariable UUID id, @Valid @RequestBody IncidentalDepositRequest request, @AuthenticationPrincipal Jwt jwt) {
+        UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
+        bookingService.addDeposit(id, request, staffId);
+    }
+
+    @PostMapping("/{id}/refund-deposit")
+    public void refundDeposit(@PathVariable UUID id, @Valid @RequestBody IncidentalDepositRequest request, @AuthenticationPrincipal Jwt jwt) {
+        UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
+        bookingService.refundDeposit(id, request, staffId);
     }
 }

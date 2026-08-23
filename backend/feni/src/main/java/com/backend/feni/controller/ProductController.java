@@ -48,6 +48,9 @@ public class ProductController {
                 .lowStockThreshold(request.getLowStockThreshold())
                 .price(request.getPrice())
                 .unitCost(request.getUnitCost())
+                .baseUnit(request.getBaseUnit())
+                .bulkUnit(request.getBulkUnit())
+                .conversionRatio(request.getConversionRatio() != null ? request.getConversionRatio() : 1)
                 .build();
         Product saved = productRepository.save(product);
         createProductOutboxEvent(saved);
@@ -69,6 +72,9 @@ public class ProductController {
         product.setLowStockThreshold(request.getLowStockThreshold());
         product.setPrice(request.getPrice());
         product.setUnitCost(request.getUnitCost());
+        product.setBaseUnit(request.getBaseUnit());
+        product.setBulkUnit(request.getBulkUnit());
+        product.setConversionRatio(request.getConversionRatio() != null ? request.getConversionRatio() : 1);
 
         Product saved = productRepository.save(product);
         createProductOutboxEvent(saved);
@@ -104,6 +110,9 @@ public class ProductController {
                 .lowStockThreshold(product.getLowStockThreshold())
                 .price(product.getPrice())
                 .unitCost(product.getUnitCost())
+                .baseUnit(product.getBaseUnit())
+                .bulkUnit(product.getBulkUnit())
+                .conversionRatio(product.getConversionRatio())
                 .build();
     }
 }

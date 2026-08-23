@@ -7,4 +7,5 @@ import java.util.UUID;
 
 public interface GuestRepository extends JpaRepository<Guest, UUID> {
     Optional<Guest> findByEmail(String email);
+    Optional<Guest> findFirstByEmailAndFirstNameIgnoreCaseAndLastNameIgnoreCase(String email, String firstName, String lastName);
 }

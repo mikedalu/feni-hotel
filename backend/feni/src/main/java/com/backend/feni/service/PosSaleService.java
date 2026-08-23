@@ -9,11 +9,13 @@ import com.backend.feni.entity.Product;
 import com.backend.feni.entity.enums.EntryType;
 import com.backend.feni.entity.enums.OutboxStatus;
 import com.backend.feni.entity.enums.ProductType;
+import com.backend.feni.entity.TaxBracket;
 import com.backend.feni.exception.UnbalancedJournalException;
 import com.backend.feni.repository.JournalEntryRepository;
 import com.backend.feni.repository.OutboxEventRepository;
 import com.backend.feni.repository.ProductRepository;
 import com.backend.feni.repository.StaffUserRepository;
+import com.backend.feni.repository.SmartPosTerminalRepository;
 import com.backend.feni.entity.StaffUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,9 +40,8 @@ public class PosSaleService {
     private final StaffUserRepository staffRepo;
     private final com.backend.feni.service.email.EmailSender emailSender;
     private final ObjectMapper objectMapper;
-
-    @org.springframework.beans.factory.annotation.Value("${email.admin-address:admin@feni.local}")
-    private String adminEmail;
+    private final com.backend.feni.repository.FacilityRepository facilityRepo;
+    private final SmartPosTerminalRepository smartPosRepo;
 
     @Transactional
     public void completeSale(PosSaleRequest request, UUID staffId) {
@@ -57,7 +58,10 @@ public class PosSaleService {
 
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal totalCogs = BigDecimal.ZERO;
+        BigDecimal totalTaxes = BigDecimal.ZERO;
         List<Product> updatedProducts = new ArrayList<>();
+        java.util.Map<String, BigDecimal> revenueByCenter = new java.util.HashMap<>();
+        java.util.Map<String, BigDecimal> taxesByAccount = new java.util.HashMap<>();
 
         for (PosSaleItemRequest itemReq : request.getItems()) {
             Product product = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
@@ -73,47 +77,83 @@ public class PosSaleService {
 
                 // Low stock check
                 if (product.getLowStockThreshold() != null && product.getStockQty() <= product.getLowStockThreshold()) {
-                    String subject = "Low Stock Alert: " + product.getName();
-                    String htmlBody = String.format(
-                            "<p>The stock for <b>%s</b> (SKU: %s) has dropped to <b>%d</b>, which is at or below the threshold of %d.</p>",
-                            product.getName(), product.getInternalSku(), product.getStockQty(),
-                            product.getLowStockThreshold());
-                    emailSender.send(adminEmail, subject, htmlBody);
+                    String adminEmail = facilityRepo.findAll().stream().findFirst()
+                            .map(com.backend.feni.entity.Facility::getAdminEmail)
+                            .orElse("admin@feni.local");
+                            
+                    if (adminEmail != null) {
+                        String subject = "Low Stock Alert: " + product.getName();
+                        String htmlBody = String.format(
+                                "<p>The stock for <b>%s</b> (SKU: %s) has dropped to <b>%d</b>, which is at or below the threshold of %d.</p>",
+                                product.getName(), product.getInternalSku(), product.getStockQty(),
+                                product.getLowStockThreshold());
+                        emailSender.send(adminEmail, subject, htmlBody);
+                    }
                 }
             }
 
-            BigDecimal lineRevenue = product.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
-            BigDecimal lineCogs = product.getUnitCost().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            BigDecimal itemQty = BigDecimal.valueOf(itemReq.getQuantity());
+            BigDecimal lineRevenue = product.getPrice().multiply(itemQty);
+            BigDecimal lineCogs = product.getUnitCost().multiply(itemQty);
 
             totalRevenue = totalRevenue.add(lineRevenue);
             totalCogs = totalCogs.add(lineCogs);
+
+            String accountName = "Sales Revenue - " + product.getRevenueCenter().name();
+            revenueByCenter.put(accountName, revenueByCenter.getOrDefault(accountName, BigDecimal.ZERO).add(lineRevenue));
+
+            if (product.getTaxBrackets() != null) {
+                for (TaxBracket tax : product.getTaxBrackets()) {
+                    if (tax.getIsActive() != null && tax.getIsActive()) {
+                        BigDecimal taxAmount = lineRevenue.multiply(tax.getRate()).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                        totalTaxes = totalTaxes.add(taxAmount);
+                        
+                        String liabilityAccount = tax.getLiabilityAccountName();
+                        taxesByAccount.put(liabilityAccount, taxesByAccount.getOrDefault(liabilityAccount, BigDecimal.ZERO).add(taxAmount));
+                    }
+                }
+            }
 
             productRepo.save(product);
             updatedProducts.add(product);
         }
 
-        String debitAccount = switch (request.getPaymentMethod()) {
-            case CASH -> "Cash";
-            case POS -> "Card Payments";
-            case TRANSFER -> "Bank Transfers";
-        };
-
-        // 4 lines of accounting (basic structure, we need to handle per-product revenue
-        // centers if they differ, but we can simplify by grouping revenue by center)
-        journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(totalRevenue)
+        BigDecimal grandTotal = totalRevenue.add(totalTaxes);
+        
+        BigDecimal tenderedTotal = BigDecimal.ZERO;
+        
+        for (PosSaleRequest.SplitTenderRequest tender : request.getSplitTenders()) {
+            tenderedTotal = tenderedTotal.add(tender.getAmount());
+            
+            String debitAccount = switch (tender.getPaymentMethod()) {
+                case CASH -> "Cash";
+                case POS -> {
+                    if (tender.getSmartPosTerminalId() != null) {
+                        yield smartPosRepo.findById(tender.getSmartPosTerminalId())
+                            .map(t -> "Card Payments - " + t.getName())
+                            .orElse("Card Payments");
+                    }
+                    yield "Card Payments";
+                }
+                case TRANSFER -> "Bank Transfers";
+            };
+            
+            journalEntry.addLine(JournalLine.builder()
+                .accountName(debitAccount)
+                .debitAmount(tender.getAmount())
                 .creditAmount(BigDecimal.ZERO).build());
+        }
 
-        // Group revenue by center
-        java.util.Map<String, BigDecimal> revenueByCenter = new java.util.HashMap<>();
-        for (PosSaleItemRequest itemReq : request.getItems()) {
-            Product p = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
-                    .orElseGet(() -> productRepo.findByManufacturerBarcode(itemReq.getSkuOrBarcode()).orElseThrow());
-            String accountName = "Sales Revenue - " + p.getRevenueCenter().name();
-            BigDecimal lineRev = p.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
-            revenueByCenter.put(accountName, revenueByCenter.getOrDefault(accountName, BigDecimal.ZERO).add(lineRev));
+        if (tenderedTotal.compareTo(grandTotal) != 0) {
+            throw new IllegalArgumentException("Sum of split tenders (" + tenderedTotal + ") does not match grand total (" + grandTotal + ")");
         }
 
         for (java.util.Map.Entry<String, BigDecimal> entry : revenueByCenter.entrySet()) {
+            journalEntry.addLine(JournalLine.builder().accountName(entry.getKey()).debitAmount(BigDecimal.ZERO)
+                    .creditAmount(entry.getValue()).build());
+        }
+
+        for (java.util.Map.Entry<String, BigDecimal> entry : taxesByAccount.entrySet()) {
             journalEntry.addLine(JournalLine.builder().accountName(entry.getKey()).debitAmount(BigDecimal.ZERO)
                     .creditAmount(entry.getValue()).build());
         }
@@ -181,6 +221,7 @@ public class PosSaleService {
         receiptBuilder.append("============================\n\n");
 
         BigDecimal totalRevenue = BigDecimal.ZERO;
+        BigDecimal totalTaxes = BigDecimal.ZERO;
 
         for (PosSaleItemRequest itemReq : request.getItems()) {
             Product product = productRepo.findByInternalSku(itemReq.getSkuOrBarcode())
@@ -190,12 +231,32 @@ public class PosSaleService {
 
             BigDecimal lineRevenue = product.getPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             totalRevenue = totalRevenue.add(lineRevenue);
+            
+            if (product.getTaxBrackets() != null) {
+                for (TaxBracket tax : product.getTaxBrackets()) {
+                    if (tax.getIsActive() != null && tax.getIsActive()) {
+                        BigDecimal taxAmount = lineRevenue.multiply(tax.getRate()).divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                        totalTaxes = totalTaxes.add(taxAmount);
+                    }
+                }
+            }
 
             receiptBuilder.append(
-                    String.format("%s x%d  $%s\n", product.getName(), itemReq.getQuantity(), lineRevenue.toString()));
+                    String.format("%s x%d  ₦%s\n", product.getName(), itemReq.getQuantity(), lineRevenue.toString()));
         }
 
-        receiptBuilder.append(String.format("TOTAL: $%s\n", totalRevenue.toString()));
+        receiptBuilder.append(String.format("SUBTOTAL: ₦%s\n", totalRevenue.toString()));
+        if (totalTaxes.compareTo(BigDecimal.ZERO) > 0) {
+            receiptBuilder.append(String.format("TAXES: ₦%s\n", totalTaxes.toString()));
+        }
+        BigDecimal grandTotal = totalRevenue.add(totalTaxes);
+        receiptBuilder.append(String.format("TOTAL: ₦%s\n", grandTotal.toString()));
+        receiptBuilder.append("----------------------------\n");
+        if (request.getSplitTenders() != null) {
+            for (PosSaleRequest.SplitTenderRequest tender : request.getSplitTenders()) {
+                receiptBuilder.append(String.format("PAID (%s): ₦%s\n", tender.getPaymentMethod().name(), tender.getAmount().toString()));
+            }
+        }
         receiptBuilder.append("============================\n");
         return receiptBuilder.toString();
     }

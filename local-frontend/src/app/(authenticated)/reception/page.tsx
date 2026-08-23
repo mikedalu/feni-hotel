@@ -4,16 +4,20 @@ import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { BookingResponse, ChangeRoomRequest } from '@/types/booking';
+import { BookingResponse, ChangeRoomRequest, ExtendBookingRequest } from '@/types/booking';
 import Link from 'next/link';
 import { PlusIcon, QrCodeIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import ChangeRoomModal from '@/components/reception/ChangeRoomModal';
+import ExtendBookingModal from '@/components/reception/ExtendBookingModal';
+import ManageDepositsModal from '@/components/reception/ManageDepositsModal';
 import { DataTable } from '@/components/ui/DataTable';
 import { DataTableColumnHeader } from '@/components/ui/DataTableColumnHeader';
 
 export default function ReceptionDashboardPage() {
   const queryClient = useQueryClient();
   const [changingRoomFor, setChangingRoomFor] = React.useState<BookingResponse | null>(null);
+  const [extendingBookingFor, setExtendingBookingFor] = React.useState<BookingResponse | null>(null);
+  const [managingDepositsFor, setManagingDepositsFor] = React.useState<BookingResponse | null>(null);
 
   const { data: bookings = [], isLoading, error } = useQuery<BookingResponse[]>({
     queryKey: ['bookings'],
@@ -52,6 +56,63 @@ export default function ReceptionDashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       setChangingRoomFor(null);
+    },
+  });
+
+  const extendBookingMutation = useMutation({
+    mutationFn: async (data: ExtendBookingRequest) => {
+      if (!extendingBookingFor) return;
+      const res = await apiClient(`/api/proxy/bookings/${extendingBookingFor.id}/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || 'Failed to extend booking');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setExtendingBookingFor(null);
+    },
+  });
+
+  const addDepositMutation = useMutation({
+    mutationFn: async (data: { amount: number; paymentMethod: string }) => {
+      if (!managingDepositsFor) return;
+      const res = await apiClient(`/api/proxy/bookings/${managingDepositsFor.id}/deposit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || 'Failed to add deposit');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setManagingDepositsFor(null);
+    },
+  });
+
+  const refundDepositMutation = useMutation({
+    mutationFn: async (data: { amount: number; paymentMethod: string }) => {
+      if (!managingDepositsFor) return;
+      const res = await apiClient(`/api/proxy/bookings/${managingDepositsFor.id}/refund-deposit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || 'Failed to refund deposit');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setManagingDepositsFor(null);
     },
   });
 
@@ -197,7 +258,8 @@ export default function ReceptionDashboardPage() {
                     row.getValue('status') === 'CHECKED_IN' ? 'bg-green-100 text-green-800' :
                     row.getValue('status') === 'CHECKED_OUT' ? 'bg-gray-100 text-gray-800' :
                     row.getValue('status') === 'RESERVED' ? 'bg-blue-100 text-blue-800' :
-                    'bg-red-100 text-red-800'
+                    row.getValue('status') === 'OVERDUE' ? 'bg-red-100 text-red-800 font-bold border border-red-300' :
+                    'bg-red-50 text-red-700'
                   }`}>
                     {(row.getValue('status') as string) || 'CHECKED_IN'}
                   </span>
@@ -206,18 +268,30 @@ export default function ReceptionDashboardPage() {
               {
                 id: 'actions',
                 header: 'Actions',
-                meta: { headerClassName: 'text-right', className: 'text-right' },
+                meta: { headerClassName: 'text-right pr-6 sm:pr-8', className: 'text-right pr-6 sm:pr-8' },
                 cell: ({ row }) => {
                   const booking = row.original;
                   return (
                     <div className="flex justify-end gap-3">
-                      {booking.status === 'CHECKED_IN' && (
+                      {(booking.status === 'CHECKED_IN' || booking.status === 'OVERDUE') && (
                         <>
                           <button
                             onClick={() => setChangingRoomFor(booking)}
                             className="text-blue-600 hover:text-blue-900 font-medium text-sm"
                           >
                             Change Room
+                          </button>
+                          <button
+                            onClick={() => setExtendingBookingFor(booking)}
+                            className="text-purple-600 hover:text-purple-900 font-medium text-sm"
+                          >
+                            Extend
+                          </button>
+                          <button
+                            onClick={() => setManagingDepositsFor(booking)}
+                            className="text-teal-600 hover:text-teal-900 font-medium text-sm"
+                          >
+                            Deposits
                           </button>
                           <button
                             onClick={() => {
@@ -239,6 +313,14 @@ export default function ReceptionDashboardPage() {
                       >
                         Download Invoice
                       </button>
+                      {booking.idScanUrl && (
+                        <a
+                          href={`/reception/bookings/${booking.id}`}
+                          className="text-teal-600 hover:text-teal-900 font-medium text-sm ml-2"
+                        >
+                          View Detail
+                        </a>
+                      )}
                     </div>
                   )
                 }
@@ -258,6 +340,31 @@ export default function ReceptionDashboardPage() {
               await changeRoomMutation.mutateAsync(data);
             }}
             isSubmitting={changeRoomMutation.isPending}
+          />
+        )}
+
+        {extendingBookingFor && (
+          <ExtendBookingModal
+            booking={extendingBookingFor}
+            onClose={() => setExtendingBookingFor(null)}
+            onSubmit={async (data) => {
+              await extendBookingMutation.mutateAsync(data);
+            }}
+            isSubmitting={extendBookingMutation.isPending}
+          />
+        )}
+
+        {managingDepositsFor && (
+          <ManageDepositsModal
+            booking={managingDepositsFor}
+            onClose={() => setManagingDepositsFor(null)}
+            onAddDeposit={async (data) => {
+              await addDepositMutation.mutateAsync(data);
+            }}
+            onRefundDeposit={async (data) => {
+              await refundDepositMutation.mutateAsync(data);
+            }}
+            isSubmitting={addDepositMutation.isPending || refundDepositMutation.isPending}
           />
         )}
 

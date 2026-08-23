@@ -1,24 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Menu, X, Home, ShoppingCart, KeyRound, 
   Users, Bed, Tag, SprayCan, Package, 
-  ClipboardList, LogOut
+  ClipboardList, LogOut, Settings, ChevronDown, BookOpen
 } from 'lucide-react';
 
 export default function TopNav() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dropdownRef]);
 
   if (!user) return null;
 
   const role = user.role;
 
-  // Build navigation links dynamically based on role
-  const getLinks = () => {
+  // Build main navigation links dynamically based on role
+  const getMainLinks = () => {
     const navLinks = [
       { href: '/', label: 'Dashboard', icon: Home }
     ];
@@ -31,44 +44,53 @@ export default function TopNav() {
       navLinks.push({ href: '/reception', label: 'Check-In', icon: KeyRound });
     }
 
-    if (role === 'ADMIN') {
-      navLinks.push({ href: '/admin/staff', label: 'Staff', icon: Users });
-      navLinks.push({ href: '/admin/rooms', label: 'Rooms', icon: Bed });
-      navLinks.push({ href: '/admin/promos', label: 'Promos', icon: Tag });
-    }
-
     if (['ADMIN', 'FRONT_DESK', 'HOUSEKEEPER'].includes(role)) {
       navLinks.push({ href: '/housekeeping', label: 'Housekeeping', icon: SprayCan });
     }
 
     if (['ADMIN', 'INVENTORY_MANAGER'].includes(role)) {
-      navLinks.push({ href: '/admin/products', label: 'Products', icon: Package });
       navLinks.push({ href: '/inventory', label: 'Inventory', icon: ClipboardList });
     }
 
     return navLinks;
   };
 
-  const links = getLinks();
+  const getAdminLinks = () => {
+    const links = [];
+    if (role === 'ADMIN') {
+      links.push({ href: '/admin/staff', label: 'Staff', icon: Users });
+      links.push({ href: '/admin/rooms', label: 'Rooms', icon: Bed });
+      links.push({ href: '/admin/promos', label: 'Promos', icon: Tag });
+      links.push({ href: '/admin/ledger', label: 'Ledger', icon: BookOpen });
+      links.push({ href: '/admin/settings', label: 'Settings', icon: Settings });
+    }
+    if (['ADMIN', 'INVENTORY_MANAGER'].includes(role)) {
+      links.push({ href: '/admin/products', label: 'Products', icon: Package });
+    }
+    return links;
+  };
+
+  const mainLinks = getMainLinks();
+  const adminLinks = getAdminLinks();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
       <div className="flex h-16 items-center px-4 md:px-6 w-full max-w-7xl mx-auto">
         <div className="flex items-center gap-6 md:gap-8">
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold tracking-tight text-blue-900">Feni Hub</span>
+            <span className="text-xl font-bold tracking-tight text-blue-900 whitespace-nowrap">Feni Hub</span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {links.map((link) => {
+            {mainLinks.map((link) => {
               const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
               const Icon = link.icon;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     isActive 
                       ? 'bg-blue-50 text-blue-700' 
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -83,23 +105,73 @@ export default function TopNav() {
         </div>
 
         <div className="ml-auto flex items-center gap-4">
-          {/* User Profile */}
-          <div className="hidden sm:flex items-center gap-3">
-            <div className="flex flex-col items-end text-sm">
-              <span className="font-semibold text-gray-900">{user.username}</span>
-              <span className="text-xs text-gray-500">{user.role}</span>
-            </div>
-            <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
-              {user.username.charAt(0).toUpperCase()}
-            </div>
-            <div className="w-px h-6 bg-gray-200 mx-1"></div>
+          {/* User Profile / Admin Dropdown */}
+          <div className="hidden sm:flex relative items-center" ref={dropdownRef}>
             <button 
-              onClick={logout} 
-              className="p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors group"
-              title="Logout"
+              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              className="flex items-center gap-3 p-1 pr-3 rounded-full border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-all focus:outline-none"
             >
-              <LogOut className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shadow-inner">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex flex-col items-start text-left hidden lg:flex">
+                <span className="text-sm font-semibold text-gray-900 leading-tight">{user.username}</span>
+                <span className="text-xs text-gray-500 capitalize">{user.role.replace('_', ' ').toLowerCase()}</span>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
+
+            <AnimatePresence>
+              {profileDropdownOpen && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-14 w-56 rounded-xl border border-gray-100 bg-white shadow-xl overflow-hidden py-2"
+                >
+                  {adminLinks.length > 0 && (
+                    <>
+                      <div className="px-4 py-2">
+                        <p className="text-xs font-semibold tracking-wider text-gray-400 uppercase">Administration</p>
+                      </div>
+                      <div className="flex flex-col px-2">
+                        {adminLinks.map((link) => {
+                          const Icon = link.icon;
+                          const isActive = pathname.startsWith(link.href);
+                          return (
+                            <Link
+                              key={link.href}
+                              href={link.href}
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              <Icon className="h-4 w-4" />
+                              {link.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                      <div className="my-2 h-px bg-gray-100 w-full" />
+                    </>
+                  )}
+                  <div className="px-2">
+                    <button 
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        logout();
+                      }} 
+                      className="flex items-center gap-3 w-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign out
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -113,50 +185,89 @@ export default function TopNav() {
       </div>
 
       {/* Mobile Navigation Dropdown */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white px-4 py-4 space-y-4">
-          <nav className="flex flex-col gap-2">
-            {links.map((link) => {
-              const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    isActive 
-                      ? 'bg-blue-50 text-blue-700' 
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="md:hidden overflow-hidden border-t bg-white"
+          >
+            <div className="px-4 py-4 space-y-4">
+              <nav className="flex flex-col gap-1">
+                <div className="px-2 pb-2">
+                  <p className="text-xs font-semibold tracking-wider text-gray-400 uppercase">Main Menu</p>
+                </div>
+                {mainLinks.map((link) => {
+                  const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                        isActive 
+                          ? 'bg-blue-50 text-blue-700' 
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {link.label}
+                    </Link>
+                  );
+                })}
+
+                {adminLinks.length > 0 && (
+                  <>
+                    <div className="px-2 pt-4 pb-2">
+                      <p className="text-xs font-semibold tracking-wider text-gray-400 uppercase">Admin</p>
+                    </div>
+                    {adminLinks.map((link) => {
+                      const isActive = pathname.startsWith(link.href);
+                      const Icon = link.icon;
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                            isActive 
+                              ? 'bg-blue-50 text-blue-700' 
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <Icon className="h-5 w-5" />
+                          {link.label}
+                        </Link>
+                      );
+                    })}
+                  </>
+                )}
+              </nav>
+              
+              <div className="border-t pt-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold shadow-inner">
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900 leading-tight">{user.username}</div>
+                    <div className="text-xs text-gray-500 capitalize">{user.role.replace('_', ' ').toLowerCase()}</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={logout} 
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 >
-                  <Icon className="h-5 w-5" />
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
-          
-          <div className="border-t pt-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                {user.username.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <div className="font-semibold text-gray-900">{user.username}</div>
-                <div className="text-xs text-gray-500">{user.role}</div>
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </button>
               </div>
             </div>
-            <button 
-              onClick={logout} 
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </button>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

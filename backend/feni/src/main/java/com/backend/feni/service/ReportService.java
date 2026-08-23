@@ -34,6 +34,7 @@ public class ReportService {
 
     private final PdfGenerationService pdfService;
     private final BookingRepository bookingRepo;
+    private final JournalEntryRepository journalRepo;
     private final JournalLineRepository journalLineRepo;
     private final ProductRepository productRepo;
     private final RoomRepository roomRepo;
@@ -65,7 +66,9 @@ public class ReportService {
                         "DEPARTURE", "ROOM NUMBER", "PURPOSE OF VISIT", "STATE OF ORIGIN", "L.G.A",
                         "NEXT OF KIN'S PHONE NUMBE" };
                 List<String[]> dssRows = new ArrayList<>();
-                List<Booking> dssBookings = bookingRepo.findByCreatedAtBetween(startOfDay, endOfDay);
+                List<Booking> dssBookings = bookingRepo.findByCheckInDateLessThanEqualAndCheckOutDateGreaterThan(date, date);
+                // Filter out cancelled bookings
+                dssBookings = dssBookings.stream().filter(b -> b.getStatus() != BookingStatus.CANCELLED).toList();
                 int sn = 1;
                 for (Booking b : dssBookings) {
                     com.backend.feni.entity.Guest g = b.getGuest();
@@ -89,48 +92,31 @@ public class ReportService {
                 return savePdf(pdfService.generateTablePdf(title, dssHeaders, dssRows, signatureLine));
 
             case "sales":
-                title = "DAILY SALES BOOK (ACCOMMODATION) - " + date;
-                String[] salesHeaders = { "S/N", "ROOM NO", "RM CATEGORY", "AMOUNT", "CASH", "TRANSFER", "POS",
-                        "REMARK" };
+                title = "Sales Report - " + date;
+                String[] salesHeaders = { "S/N", "TIME", "REVENUE CENTER", "AMOUNT", "PROCESSED BY", "REF ID" };
                 List<String[]> salesRows = new ArrayList<>();
-                List<Booking> salesBookings = bookingRepo.findByCreatedAtBetween(startOfDay, endOfDay);
+                
+                List<com.backend.feni.entity.JournalLine> salesLines = journalLineRepo
+                        .findByAccountNameStartingWithAndDateBetween("Sales Revenue -", startOfDay, endOfDay);
+                
                 int ssn = 1;
                 BigDecimal totalAmount = BigDecimal.ZERO;
-                BigDecimal totalCash = BigDecimal.ZERO;
-                BigDecimal totalTransfer = BigDecimal.ZERO;
-                BigDecimal totalPos = BigDecimal.ZERO;
 
-                for (Booking b : salesBookings) {
-                    BigDecimal cost = b.getTotalCost();
-                    totalAmount = totalAmount.add(cost);
-
-                    String cash = "", transfer = "", pos = "";
-                    if (b.getPaymentMethod() == com.backend.feni.entity.enums.PaymentMethod.CASH) {
-                        cash = cost.toString();
-                        totalCash = totalCash.add(cost);
-                    }
-                    if (b.getPaymentMethod() == com.backend.feni.entity.enums.PaymentMethod.TRANSFER) {
-                        transfer = cost.toString();
-                        totalTransfer = totalTransfer.add(cost);
-                    }
-                    if (b.getPaymentMethod() == com.backend.feni.entity.enums.PaymentMethod.POS) {
-                        pos = cost.toString();
-                        totalPos = totalPos.add(cost);
-                    }
-
+                for (com.backend.feni.entity.JournalLine jl : salesLines) {
+                    totalAmount = totalAmount.add(jl.getCreditAmount());
+                    String processedBy = jl.getJournalEntry().getProcessedBy() != null ? 
+                            jl.getJournalEntry().getProcessedBy().getUsername() : "System";
+                    
                     salesRows.add(new String[] {
                             String.valueOf(ssn++),
-                            b.getRoomNumber(),
-                            b.getRoomType(),
-                            cost.toString(),
-                            cash,
-                            transfer,
-                            pos,
-                            ""
+                            jl.getJournalEntry().getCreatedAt().toString(),
+                            jl.getAccountName().replace("Sales Revenue - ", ""),
+                            jl.getCreditAmount().toString(),
+                            processedBy,
+                            jl.getJournalEntry().getReferenceId().toString().substring(0, 8)
                     });
                 }
-                salesRows.add(new String[] { "", "TOTAL", "", totalAmount.toString(), totalCash.toString(),
-                        totalTransfer.toString(), totalPos.toString(), "" });
+                salesRows.add(new String[] { "", "", "TOTAL", totalAmount.toString(), "", "" });
 
                 return savePdf(pdfService.generateTablePdf(title, salesHeaders, salesRows));
 
@@ -155,12 +141,12 @@ public class ReportService {
                         otherRev = otherRev.add(jl.getCreditAmount());
                 }
 
-                content.append("Rooms Revenue: $").append(roomsRev).append("\n");
-                content.append("Bar Revenue: $").append(barRev).append("\n");
-                content.append("Kitchen Revenue: $").append(kitchenRev).append("\n");
-                content.append("Other Revenue: $").append(otherRev).append("\n");
+                content.append("Rooms Revenue: ₦").append(roomsRev).append("\n");
+                content.append("Bar Revenue: ₦").append(barRev).append("\n");
+                content.append("Kitchen Revenue: ₦").append(kitchenRev).append("\n");
+                content.append("Other Revenue: ₦").append(otherRev).append("\n");
                 content.append("----------------------------\n");
-                content.append("Total Revenue: $").append(roomsRev.add(barRev).add(kitchenRev).add(otherRev))
+                content.append("Total Revenue: ₦").append(roomsRev.add(barRev).add(kitchenRev).add(otherRev))
                         .append("\n");
                 break;
 
@@ -202,9 +188,23 @@ public class ReportService {
                 return savePdf(pdfService.generateTablePdf(title, invHeaders, invRows));
 
             case "staff-activity":
-                title = "Staff Activity Report";
-                content.append("Staff Activity Report\n(Staff actions would appear here.)\n");
-                break;
+                title = "Staff Activity Report - " + date;
+                String[] staffHeaders = { "S/N", "STAFF", "ENTRY TYPE", "REF ID", "TIME" };
+                List<String[]> staffRows = new ArrayList<>();
+                
+                List<JournalEntry> entries = journalRepo.findByCreatedAtBetween(startOfDay, endOfDay);
+                int staffSn = 1;
+                for (JournalEntry entry : entries) {
+                    String processedBy = entry.getProcessedBy() != null ? entry.getProcessedBy().getUsername() : "System";
+                    staffRows.add(new String[] {
+                            String.valueOf(staffSn++),
+                            processedBy,
+                            entry.getEntryType().name(),
+                            entry.getReferenceId().toString().substring(0, 8),
+                            entry.getCreatedAt().toString()
+                    });
+                }
+                return savePdf(pdfService.generateTablePdf(title, staffHeaders, staffRows));
 
             default:
                 throw new IllegalArgumentException("Unknown report type: " + type);
@@ -254,15 +254,18 @@ public class ReportService {
                     String.valueOf(sn++),
                     product.getName(),
                     String.valueOf(itemReq.getQuantity()),
-                    "$" + product.getPrice().toString(),
-                    "$" + lineTotal.toString()
+                    "₦" + product.getPrice().toString(),
+                    "₦" + lineTotal.toString()
             });
         }
+
+        String paymentMethods = request.getSplitTenders() != null && !request.getSplitTenders().isEmpty() ? 
+                request.getSplitTenders().stream().map(t -> t.getPaymentMethod().name()).distinct().collect(java.util.stream.Collectors.joining("/")) : "UNKNOWN";
 
         byte[] pdfBytes = pdfService.generateEnterpriseInvoicePdf(
                 documentTitle, invoiceNumber, dateOfIssue, 
                 null, headers, rows, 
-                "$" + grandTotal.toString(), "$" + grandTotal.toString(), request.getPaymentMethod().name());
+                "₦" + grandTotal.toString(), "₦" + grandTotal.toString(), paymentMethods);
 
         return savePdf(pdfBytes);
     }
@@ -286,14 +289,14 @@ public class ReportService {
                 "Room Stay: " + booking.getRoomType() + " (" + booking.getRoomNumber() + ")",
                 booking.getCheckInDate().toString(),
                 booking.getCheckOutDate().toString(),
-                "$" + booking.getTotalCost().toString()
+                "₦" + booking.getTotalCost().toString()
         });
 
         return pdfService.generateEnterpriseInvoicePdf(
                 documentTitle, invoiceNumber, dateOfIssue, 
                 guestDetails, headers, rows, 
-                "$" + booking.getTotalCost().toString(), 
-                "$" + booking.getTotalCost().toString(), 
+                "₦" + booking.getTotalCost().toString(), 
+                "₦" + booking.getTotalCost().toString(), 
                 booking.getPaymentMethod().name());
     }
 
@@ -329,21 +332,60 @@ public class ReportService {
         StringBuilder content = new StringBuilder();
         content.append("Statement Period: ").append(startOfMonth).append(" to ").append(endOfMonth).append("\n\n");
         content.append("REVENUE\n");
-        content.append("Total Sales Revenue: $").append(totalRevenue).append("\n\n");
-        content.append("COST OF GOODS SOLD\n");
-        content.append("Total COGS: $").append(totalCogs).append("\n\n");
-        content.append("----------------------------------------\n");
-        content.append("GROSS PROFIT: $").append(grossProfit).append("\n");
+        content.append("Total Sales Revenue: ₦").append(totalRevenue).append("\n\n");
+        content.append("Cost of Goods Sold (COGS):\n");
+        content.append("Total COGS: ₦").append(totalCogs).append("\n\n");
+        content.append("----------------------------\n");
+        content.append("GROSS PROFIT: ₦").append(grossProfit).append("\n");
         content.append("========================================\n");
 
         return pdfService.generateSimpleTextPdf(title, content.toString());
+    }
+
+    public String generateProfitAndLossReport(LocalDate startDate, LocalDate endDate) {
+        Instant start = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant end = endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
+        String title = "Profit & Loss Statement\n" + startDate + " to " + endDate;
+
+        List<com.backend.feni.entity.JournalLine> revLines = journalLineRepo
+                .findByAccountNameStartingWithAndDateBetween("Sales Revenue", start, end);
+        List<com.backend.feni.entity.JournalLine> cogsLines = journalLineRepo
+                .findByAccountNameStartingWithAndDateBetween("Cost of Goods Sold", start, end);
+
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        for (com.backend.feni.entity.JournalLine jl : revLines) {
+            totalRevenue = totalRevenue.add(jl.getCreditAmount());
+        }
+
+        BigDecimal totalCogs = BigDecimal.ZERO;
+        for (com.backend.feni.entity.JournalLine jl : cogsLines) {
+            totalCogs = totalCogs.add(jl.getDebitAmount());
+        }
+
+        BigDecimal grossProfit = totalRevenue.subtract(totalCogs);
+
+        String[] headers = { "CATEGORY", "AMOUNT" };
+        List<String[]> rows = new ArrayList<>();
+        
+        rows.add(new String[] { "REVENUE", "" });
+        rows.add(new String[] { "Total Sales Revenue", "₦" + totalRevenue.toString() });
+        rows.add(new String[] { "", "" });
+        rows.add(new String[] { "COST OF GOODS SOLD (COGS)", "" });
+        rows.add(new String[] { "Total COGS", "₦" + totalCogs.toString() });
+        rows.add(new String[] { "", "" });
+        rows.add(new String[] { "GROSS PROFIT", "₦" + grossProfit.toString() });
+
+        byte[] pdfBytes = pdfService.generateTablePdf(title, headers, rows);
+        return savePdf(pdfBytes);
     }
 
     public List<ShiftSummaryDataResponse> getShiftSummaryData(LocalDate date) {
         Instant startOfDay = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
         Instant endOfDay = date.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
 
-        List<Booking> bookings = bookingRepo.findByCreatedAtBetween(startOfDay, endOfDay);
+        List<Booking> bookings = bookingRepo.findByCheckInDateLessThanEqualAndCheckOutDateGreaterThan(date, date);
+        bookings = bookings.stream().filter(b -> b.getStatus() != BookingStatus.CANCELLED).toList();
 
         return bookings.stream().map(b -> ShiftSummaryDataResponse.builder()
                 .guestName(b.getGuest().getFirstName() + " " + b.getGuest().getLastName())

@@ -4,18 +4,37 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { RoomResponse, RoomRequest } from '@/types/room';
+import { RoomResponse, RoomRequest, RoomTypeResponse } from '@/types/room';
 import { DataTable } from '@/components/ui/DataTable';
 import { DataTableColumnHeader } from '@/components/ui/DataTableColumnHeader';
-import { PencilSquareIcon, NoSymbolIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { PencilSquareIcon, NoSymbolIcon, CheckCircleIcon, Cog8ToothIcon } from '@heroicons/react/24/outline';
+import RoomTypesModal from './RoomTypesModal';
 
 export default function AdminRoomsSetup() {
   const queryClient = useQueryClient();
-  const [newRoom, setNewRoom] = useState<RoomRequest>({ roomNumber: '', roomType: 'Standard', basePrice: 0 });
+  const [newRoom, setNewRoom] = useState<RoomRequest>({ roomNumber: '', roomType: '', basePrice: 0 });
   const [error, setError] = useState<string | null>(null);
   
   const [editingRoom, setEditingRoom] = useState<RoomResponse | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  
+  const [showRoomTypesModal, setShowRoomTypesModal] = useState(false);
+
+  const { data: roomTypes = [] } = useQuery<RoomTypeResponse[]>({
+    queryKey: ['roomTypes'],
+    queryFn: async () => {
+      const res = await apiClient('/api/proxy/admin/room-types');
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
+  // Automatically set default roomType if available and not yet set
+  React.useEffect(() => {
+    if (roomTypes.length > 0 && !newRoom.roomType) {
+      setNewRoom(prev => ({ ...prev, roomType: roomTypes[0].name, basePrice: roomTypes[0].basePrice }));
+    }
+  }, [roomTypes, newRoom.roomType]);
 
   const { data: rooms = [], isLoading } = useQuery<RoomResponse[]>({
     queryKey: ['rooms'],
@@ -34,13 +53,17 @@ export default function AdminRoomsSetup() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Failed to create room');
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || errorData?.error || 'Failed to create room');
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
-      setNewRoom({ roomNumber: '', roomType: 'Standard', basePrice: 0 });
+      setNewRoom({ 
+        roomNumber: '', 
+        roomType: roomTypes.length > 0 ? roomTypes[0].name : '', 
+        basePrice: roomTypes.length > 0 ? roomTypes[0].basePrice : 0 
+      });
       setError(null);
     },
     onError: (err: unknown) => {
@@ -64,8 +87,8 @@ export default function AdminRoomsSetup() {
         }),
       });
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Failed to update room');
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || errorData?.error || 'Failed to update room');
       }
     },
     onSuccess: () => {
@@ -105,9 +128,18 @@ export default function AdminRoomsSetup() {
   return (
     <ProtectedRoute allowedRoles={['ADMIN']}>
       <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h2 className="text-3xl font-extrabold text-gray-900">Room Management</h2>
-          <p className="text-sm text-gray-500 mt-1">Configure physical hotel rooms for check-in availability.</p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-extrabold text-gray-900">Room Management</h2>
+            <p className="text-sm text-gray-500 mt-1">Configure physical hotel rooms for check-in availability.</p>
+          </div>
+          <button
+            onClick={() => setShowRoomTypesModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm transition-colors shadow-sm"
+          >
+            <Cog8ToothIcon className="h-5 w-5" />
+            Manage Room Types
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -133,12 +165,21 @@ export default function AdminRoomsSetup() {
                   <select
                     required
                     value={newRoom.roomType}
-                    onChange={(e) => setNewRoom({ ...newRoom, roomType: e.target.value })}
+                    onChange={(e) => {
+                      const selectedType = e.target.value;
+                      const typeData = roomTypes.find(t => t.name === selectedType);
+                      setNewRoom({
+                        ...newRoom,
+                        roomType: selectedType,
+                        basePrice: typeData ? typeData.basePrice : newRoom.basePrice
+                      });
+                    }}
                     className="block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 sm:text-sm bg-white"
                   >
-                    <option value="Standard">Standard</option>
-                    <option value="Deluxe">Deluxe</option>
-                    <option value="Suite">Suite</option>
+                    {roomTypes.length === 0 && <option value="">No types configured</option>}
+                    {roomTypes.map((type) => (
+                      <option key={type.id} value={type.name}>{type.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -270,12 +311,21 @@ export default function AdminRoomsSetup() {
                 <select 
                   required 
                   value={editingRoom.roomType} 
-                  onChange={e => setEditingRoom({...editingRoom, roomType: e.target.value})} 
+                  onChange={(e) => {
+                    const selectedType = e.target.value;
+                    const typeData = roomTypes.find(t => t.name === selectedType);
+                    setEditingRoom({
+                      ...editingRoom,
+                      roomType: selectedType,
+                      basePrice: typeData ? typeData.basePrice : editingRoom.basePrice
+                    });
+                  }} 
                   className="block w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 sm:text-sm bg-white"
                 >
-                  <option value="Standard">Standard</option>
-                  <option value="Deluxe">Deluxe</option>
-                  <option value="Suite">Suite</option>
+                  {roomTypes.length === 0 && <option value={editingRoom.roomType}>{editingRoom.roomType}</option>}
+                  {roomTypes.map((type) => (
+                    <option key={type.id} value={type.name}>{type.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -310,6 +360,10 @@ export default function AdminRoomsSetup() {
             </form>
           </div>
         </div>
+      )}
+      
+      {showRoomTypesModal && (
+        <RoomTypesModal onClose={() => setShowRoomTypesModal(false)} />
       )}
     </ProtectedRoute>
   );

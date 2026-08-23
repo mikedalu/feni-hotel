@@ -20,6 +20,8 @@ public class Facility {
 
     private String timezone;
     private String address;
+    
+    private String adminEmail;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();

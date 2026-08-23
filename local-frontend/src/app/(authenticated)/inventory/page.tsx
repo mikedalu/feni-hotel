@@ -15,7 +15,7 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   
   // Intake cart state
-  const [cart, setCart] = useState<{ product: Product, quantity: number }[]>([]);
+  const [cart, setCart] = useState<{ product: Product, quantity: number, isBulkIntake?: boolean, totalCost?: number | '' }[]>([]);
   const [printerIp, setPrinterIp] = useState('');
   
   const fetchProducts = async () => {
@@ -66,7 +66,7 @@ export default function InventoryPage() {
       if (existing) {
         return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: 1, isBulkIntake: false, totalCost: '' }];
     });
   };
 
@@ -87,7 +87,12 @@ export default function InventoryPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: cart.map(item => ({ internalSku: item.product.internalSku, quantity: item.quantity })),
+          items: cart.map(item => ({ 
+            internalSku: item.product.internalSku, 
+            quantity: item.quantity,
+            isBulkIntake: item.isBulkIntake,
+            totalCost: item.totalCost === '' ? null : item.totalCost
+          })),
           printerIp: printerIp.trim() || null
         })
       });
@@ -190,14 +195,52 @@ export default function InventoryPage() {
                   accessorKey: 'quantity',
                   header: ({ column }) => <DataTableColumnHeader column={column} title="Quantity" />,
                   cell: ({ row }) => (
-                    <input 
-                      type="number" 
-                      min="1" 
-                      value={row.original.quantity} 
-                      onChange={e => updateQuantity(row.original.product.id, parseInt(e.target.value))}
-                      className="w-20 border border-gray-300 rounded px-2 py-1 text-center"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="number" 
+                        min="1" 
+                        value={row.original.quantity} 
+                        onChange={e => updateQuantity(row.original.product.id, parseInt(e.target.value))}
+                        className="w-20 border border-gray-300 rounded px-2 py-1 text-center"
+                      />
+                    </div>
                   )
+                },
+                {
+                  id: 'uom',
+                  header: 'Intake Mode',
+                  cell: ({ row }) => {
+                    const item = row.original;
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <select 
+                          className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                          value={item.isBulkIntake ? 'bulk' : 'base'}
+                          onChange={e => {
+                            const isBulk = e.target.value === 'bulk';
+                            setCart(prev => prev.map(i => i.product.id === item.product.id ? { ...i, isBulkIntake: isBulk } : i));
+                          }}
+                        >
+                          <option value="base">{item.product.baseUnit || 'Base Unit'}</option>
+                          <option value="bulk">{item.product.bulkUnit || 'Bulk Unit'} (x{item.product.conversionRatio || 1})</option>
+                        </select>
+                        {item.isBulkIntake && (
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            placeholder="Total Cost (₦)" 
+                            value={item.totalCost}
+                            onChange={e => {
+                              const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                              setCart(prev => prev.map(i => i.product.id === item.product.id ? { ...i, totalCost: val } : i));
+                            }}
+                            className="border border-gray-300 rounded px-2 py-1 text-sm w-32 placeholder:text-xs"
+                            title="Optional: Enter the total cost paid for this bulk intake to recalculate unit cost."
+                          />
+                        )}
+                      </div>
+                    );
+                  }
                 },
                 {
                   id: 'action',

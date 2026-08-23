@@ -21,4 +21,7 @@ public class ProductResponse {
     private Integer lowStockThreshold;
     private BigDecimal price;
     private BigDecimal unitCost;
+    private String baseUnit;
+    private String bulkUnit;
+    private Integer conversionRatio;
 }

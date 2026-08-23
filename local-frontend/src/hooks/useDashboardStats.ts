@@ -26,7 +26,7 @@ export const useDashboardStats = () => {
   return useQuery<DashboardStats>({
     queryKey: ['dashboardStats'],
     queryFn: async () => {
-      const response = await apiClient('/api/reports/dashboard');
+      const response = await apiClient('/api/proxy/reports/dashboard');
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard stats');
       }

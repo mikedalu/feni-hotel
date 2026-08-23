@@ -52,110 +52,104 @@ export async function POST(req: NextRequest) {
       // Fan out logic
       const payloadObj = JSON.parse(event.payload);
 
-      switch (event.eventType) {
-        case 'BOOKING_CREATED':
-          if (payloadObj.booking) {
-            const processedByName = payloadObj.booking.processedBy?.username || null;
-            await prisma.booking.upsert({
-              where: { id: payloadObj.booking.id },
-              update: { 
-                totalCost: payloadObj.booking.totalCost,
-                processedByName 
-              },
-              create: {
-                id: payloadObj.booking.id,
-                facilityId: facility.id,
-                totalCost: payloadObj.booking.totalCost,
-                processedByName,
-              },
-            });
-          }
-          // fall through to process potential journal entry for booking
-        case 'SALE_COMPLETED':
-        case 'INVENTORY_RECEIVED':
-          if (payloadObj.journalEntry) {
-            const entry = payloadObj.journalEntry;
-            const processedByName = entry.processedBy?.username || null;
-            await prisma.journalEntry.upsert({
-              where: { id: entry.id },
-              update: { processedByName }, // Allow updates to processedByName in case it was missing initially
-              create: {
-                id: entry.id,
-                facilityId: facility.id,
-                entryType: entry.entryType,
-                referenceId: entry.referenceId,
-                processedByName,
-                lines: {
-                  create: entry.lines.map((line: any) => ({
-                    id: line.id,
-                    accountName: line.accountName,
-                    debitAmount: line.debitAmount,
-                    creditAmount: line.creditAmount,
-                  })),
-                },
-              },
-            });
-          }
-          if (payloadObj.updatedProducts && Array.isArray(payloadObj.updatedProducts)) {
-            for (const prod of payloadObj.updatedProducts) {
-              await prisma.product.upsert({
-                where: { id: prod.id },
-                update: {
-                  name: prod.name,
-                  type: prod.type,
-                  internalSku: prod.internalSku,
-                  manufacturerBarcode: prod.manufacturerBarcode,
-                  price: prod.price,
-                  cost: prod.unitCost,
-                  stockQty: prod.stockQty,
-                  lowStockThreshold: prod.lowStockThreshold
-                },
-                create: {
-                  id: prod.id,
-                  facilityId: facility.id,
-                  name: prod.name,
-                  type: prod.type,
-                  internalSku: prod.internalSku,
-                  manufacturerBarcode: prod.manufacturerBarcode,
-                  price: prod.price,
-                  cost: prod.unitCost,
-                  stockQty: prod.stockQty,
-                  lowStockThreshold: prod.lowStockThreshold
-                }
-              });
+      if (payloadObj.booking) {
+        const processedByName = payloadObj.booking.processedBy?.username || null;
+        await prisma.booking.upsert({
+          where: { id: payloadObj.booking.id },
+          update: { 
+            totalCost: payloadObj.booking.totalCost,
+            processedByName 
+          },
+          create: {
+            id: payloadObj.booking.id,
+            facilityId: facility.id,
+            totalCost: payloadObj.booking.totalCost,
+            processedByName,
+          },
+        });
+      }
+
+      if (payloadObj.journalEntry) {
+        const entry = payloadObj.journalEntry;
+        const processedByName = entry.processedBy?.username || null;
+        await prisma.journalEntry.upsert({
+          where: { id: entry.id },
+          update: { processedByName }, // Allow updates to processedByName in case it was missing initially
+          create: {
+            id: entry.id,
+            facilityId: facility.id,
+            entryType: entry.entryType,
+            referenceId: entry.referenceId,
+            processedByName,
+            lines: {
+              create: entry.lines.map((line: any) => ({
+                id: line.id,
+                accountName: line.accountName,
+                debitAmount: line.debitAmount,
+                creditAmount: line.creditAmount,
+              })),
+            },
+          },
+        });
+      }
+
+      if (payloadObj.updatedProducts && Array.isArray(payloadObj.updatedProducts)) {
+        for (const prod of payloadObj.updatedProducts) {
+          await prisma.product.upsert({
+            where: { id: prod.id },
+            update: {
+              name: prod.name,
+              type: prod.type,
+              internalSku: prod.internalSku,
+              manufacturerBarcode: prod.manufacturerBarcode,
+              price: prod.price,
+              cost: prod.unitCost,
+              stockQty: prod.stockQty,
+              lowStockThreshold: prod.lowStockThreshold
+            },
+            create: {
+              id: prod.id,
+              facilityId: facility.id,
+              name: prod.name,
+              type: prod.type,
+              internalSku: prod.internalSku,
+              manufacturerBarcode: prod.manufacturerBarcode,
+              price: prod.price,
+              cost: prod.unitCost,
+              stockQty: prod.stockQty,
+              lowStockThreshold: prod.lowStockThreshold
             }
+          });
+        }
+      }
+
+      if (payloadObj.product) {
+        const prod = payloadObj.product;
+        await prisma.product.upsert({
+          where: { id: prod.id },
+          update: {
+            name: prod.name,
+            type: prod.type,
+            internalSku: prod.internalSku,
+            manufacturerBarcode: prod.manufacturerBarcode,
+            price: prod.price,
+            cost: prod.unitCost,
+            stockQty: prod.stockQty,
+            lowStockThreshold: prod.lowStockThreshold
+          },
+          create: {
+            id: prod.id,
+            facilityId: facility.id,
+            name: prod.name,
+            type: prod.type,
+            internalSku: prod.internalSku,
+            manufacturerBarcode: prod.manufacturerBarcode,
+            price: prod.price,
+            cost: prod.unitCost,
+            stockQty: prod.stockQty,
+            lowStockThreshold: prod.lowStockThreshold
           }
-          break;
-        case 'PRODUCT_UPSERTED':
-          if (payloadObj.product) {
-            const prod = payloadObj.product;
-            await prisma.product.upsert({
-              where: { id: prod.id },
-              update: {
-                name: prod.name,
-                type: prod.type,
-                internalSku: prod.internalSku,
-                manufacturerBarcode: prod.manufacturerBarcode,
-                price: prod.price,
-                cost: prod.unitCost,
-                stockQty: prod.stockQty,
-                lowStockThreshold: prod.lowStockThreshold
-              },
-              create: {
-                id: prod.id,
-                facilityId: facility.id,
-                name: prod.name,
-                type: prod.type,
-                internalSku: prod.internalSku,
-                manufacturerBarcode: prod.manufacturerBarcode,
-                price: prod.price,
-                cost: prod.unitCost,
-                stockQty: prod.stockQty,
-                lowStockThreshold: prod.lowStockThreshold
-              }
-            });
-          }
-          break;
+        });
       }
 
       processedIds.push(event.id);

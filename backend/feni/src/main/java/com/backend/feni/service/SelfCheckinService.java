@@ -2,7 +2,9 @@ package com.backend.feni.service;
 
 import com.backend.feni.dto.request.SelfCheckinConfirmRequest;
 import com.backend.feni.entity.Facility;
+import com.backend.feni.entity.Guest;
 import com.backend.feni.repository.FacilityRepository;
+import com.backend.feni.repository.GuestRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,7 @@ public class SelfCheckinService {
     private final BookingService bookingService;
     private final LocalFileUploadService localFileUploadService;
     private final FacilityRepository facilityRepo;
+    private final GuestRepository guestRepo;
     private final RestClient restClient;
     
     @Value("${cloud.sync.api-key}")
@@ -31,10 +34,12 @@ public class SelfCheckinService {
 
     public SelfCheckinService(BookingService bookingService, 
                               LocalFileUploadService localFileUploadService, 
-                              FacilityRepository facilityRepo) {
+                              FacilityRepository facilityRepo,
+                              GuestRepository guestRepo) {
         this.bookingService = bookingService;
         this.localFileUploadService = localFileUploadService;
         this.facilityRepo = facilityRepo;
+        this.guestRepo = guestRepo;
         this.restClient = RestClient.builder()
                 .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory())
                 .build();
@@ -81,7 +86,22 @@ public class SelfCheckinService {
         // 1. Core booking flow handles the Booking, Journal, and Outbox event
         bookingService.createBooking(request.getBookingRequest(), staffId);
 
-        CompletableFuture<String> futureIdUrl = localFileUploadService.uploadIdScanAsync(request.getIdScanBase64(), facility.getId());
+        if (request.getIdScanBase64() != null && !request.getIdScanBase64().isEmpty()) {
+            CompletableFuture<String> futureIdUrl = localFileUploadService.uploadIdScanAsync(request.getIdScanBase64(), facility.getId());
+            futureIdUrl.thenAccept(url -> {
+                if (url != null) {
+                    guestRepo.findFirstByEmailAndFirstNameIgnoreCaseAndLastNameIgnoreCase(
+                            request.getBookingRequest().getGuestEmail(),
+                            request.getBookingRequest().getGuestFirstName(),
+                            request.getBookingRequest().getGuestLastName()
+                    ).ifPresent(guest -> {
+                        guest.setIdScanUrl(url);
+                        guestRepo.save(guest);
+                        log.info("Saved ID scan URL to guest profile: {}", guest.getId());
+                    });
+                }
+            });
+        }
 
         // 3. Clear cloud session to prevent stale data
         try {

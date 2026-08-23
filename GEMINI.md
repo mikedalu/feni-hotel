@@ -393,3 +393,4 @@ queueCapacity=50`), `@EnableAsync`.
   pattern can't express, e.g. voiding a specific sale).
 - Money: `BigDecimal` everywhere, no exceptions.
 - IDs: `UUID`, `@GeneratedValue`, everywhere.
+\n## 12. Nigerian Market Premium Roadmap\nSee `premium-update.md` in the project root for the detailed feature roadmap regarding POS integrations, multi-state tax engines, and UoM inventory engines.
