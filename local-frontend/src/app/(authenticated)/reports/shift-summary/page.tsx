@@ -26,11 +26,7 @@ export default function ShiftSummaryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  useEffect(() => {
-    fetchData(selectedDate);
-  }, [selectedDate]);
-
-  const fetchData = async (date: string) => {
+  const fetchData = React.useCallback(async (date: string) => {
     setIsLoading(true);
     try {
       const res = await apiClient(`/api/proxy/reports/shift-summary/data?date=${date}`);
@@ -43,7 +39,12 @@ export default function ShiftSummaryPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData(selectedDate);
+  }, [selectedDate, fetchData]);
 
   const handleGeneratePdf = async () => {
     setIsGeneratingPdf(true);

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/lib/apiClient";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -13,7 +12,7 @@ export default function ChangePasswordPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
-  const { user } = useAuth();
+
   const router = useRouter();
 
   const handleChangePassword = async (e: React.FormEvent) => {

@@ -34,6 +34,13 @@ export default function ManualBookingPage() {
     let printerIp = '';
     if (typeof window !== 'undefined') {
       printerIp = localStorage.getItem('feni_printer_ip') || '';
+      const saved = sessionStorage.getItem('manualBookingForm');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return { ...parsed, printerIp: printerIp || parsed.printerIp };
+        } catch (e) {}
+      }
     }
     return {
       guestFirstName: '',
@@ -62,6 +69,10 @@ export default function ManualBookingPage() {
       printerIp,
     };
   });
+
+  React.useEffect(() => {
+    sessionStorage.setItem('manualBookingForm', JSON.stringify(formData));
+  }, [formData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -140,6 +151,7 @@ export default function ManualBookingPage() {
         }
       }
 
+      sessionStorage.removeItem('manualBookingForm');
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['rooms'] });
       

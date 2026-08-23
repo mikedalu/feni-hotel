@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/lib/apiClient';
 import { LedgerEntry } from '@/types/ledger';
 import toast, { Toaster } from 'react-hot-toast';
@@ -30,7 +30,7 @@ export default function LedgerPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const fetchLedger = async () => {
+  const fetchLedger = useCallback(async () => {
     try {
       setLoading(true);
       const queryParams = new URLSearchParams();
@@ -51,12 +51,12 @@ export default function LedgerPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accountName, startDate, endDate]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchLedger();
-  }, [accountName, startDate, endDate]);
+  }, [fetchLedger]);
 
   const generatePnlReport = async () => {
     try {
@@ -179,7 +179,7 @@ export default function LedgerPage() {
               accessorKey: 'createdAt',
               header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
               cell: ({ row }) => <span className="text-sm">{formatDate(row.getValue('createdAt'))}</span>,
-              meta: { exportValue: (row: any) => formatExportDate(row.createdAt) }
+              meta: { exportValue: (row: { createdAt: string }) => formatExportDate(row.createdAt) }
             },
             {
               accessorKey: 'entryType',
@@ -198,7 +198,7 @@ export default function LedgerPage() {
                 const amount = row.getValue('debitAmount') as number;
                 return amount > 0 ? <span className="text-sm font-medium text-emerald-700">₦{amount.toFixed(2)}</span> : <span className="text-sm text-gray-300">-</span>;
               },
-              meta: { exportValue: (row: any) => row.debitAmount }
+              meta: { exportValue: (row: { debitAmount: number }) => row.debitAmount }
             },
             {
               accessorKey: 'creditAmount',
@@ -207,7 +207,7 @@ export default function LedgerPage() {
                 const amount = row.getValue('creditAmount') as number;
                 return amount > 0 ? <span className="text-sm font-medium text-rose-700">₦{amount.toFixed(2)}</span> : <span className="text-sm text-gray-300">-</span>;
               },
-              meta: { exportValue: (row: any) => row.creditAmount }
+              meta: { exportValue: (row: { creditAmount: number }) => row.creditAmount }
             },
             {
               accessorKey: 'processedByUsername',
@@ -218,7 +218,7 @@ export default function LedgerPage() {
               accessorKey: 'referenceId',
               header: ({ column }) => <DataTableColumnHeader column={column} title="Ref ID" />,
               cell: ({ row }) => <span className="text-xs font-mono text-gray-400" title={row.getValue('referenceId') as string}>{(row.getValue('referenceId') as string).substring(0, 8)}...</span>,
-              meta: { exportValue: (row: any) => row.referenceId }
+              meta: { exportValue: (row: { referenceId: string }) => row.referenceId }
             }
           ]}
           isLoading={loading}

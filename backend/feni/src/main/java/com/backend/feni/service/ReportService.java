@@ -422,6 +422,9 @@ public class ReportService {
         
         BigDecimal currentWeekRevenue = BigDecimal.ZERO;
         BigDecimal lastWeekRevenue = BigDecimal.ZERO;
+        
+        List<com.backend.feni.entity.JournalLine> todayLines = new ArrayList<>();
+        List<com.backend.feni.entity.JournalLine> currentWeekLines = new ArrayList<>();
 
         // We fetch revenue data for the past 14 days to compute percentage change
         for (int i = 13; i >= 0; i--) {
@@ -435,6 +438,10 @@ public class ReportService {
             if (i < 7) {
                 // Current 7 days
                 currentWeekRevenue = currentWeekRevenue.add(dailyRev);
+                currentWeekLines.addAll(dailyLines);
+                if (i == 0) {
+                    todayLines.addAll(dailyLines);
+                }
                 
                 String dayName = d.getDayOfWeek().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH);
                 revenueTrend.add(new DashboardStatsResponse.DailyRevenue(dayName, dailyRev));
@@ -462,6 +469,26 @@ public class ReportService {
         } else if (currentWeekRevenue.compareTo(BigDecimal.ZERO) > 0) {
             revenuePercentageChange = 100.0;
         }
+        
+        // Inventory Stats
+        List<Product> products = productRepo.findAll();
+        int totalInventoryItems = 0;
+        BigDecimal inventoryValue = BigDecimal.ZERO;
+        int lowStockAlerts = 0;
+
+        for (Product p : products) {
+            if (p.getType() == com.backend.feni.entity.enums.ProductType.RAW_GOOD) {
+                totalInventoryItems++;
+                BigDecimal qty = p.getStockQty() != null ? BigDecimal.valueOf(p.getStockQty()) : BigDecimal.ZERO;
+                if (p.getUnitCost() != null) {
+                    inventoryValue = inventoryValue.add(p.getUnitCost().multiply(qty));
+                }
+                
+                if (p.getStockQty() != null && p.getLowStockThreshold() != null && p.getStockQty() <= p.getLowStockThreshold()) {
+                    lowStockAlerts++;
+                }
+            }
+        }
 
         return DashboardStatsResponse.builder()
                 .totalRevenue(currentWeekRevenue) // This assumes totalRevenue displayed is for the current week
@@ -472,6 +499,39 @@ public class ReportService {
                 .pendingCheckins(pendingCheckins)
                 .revenueTrend(revenueTrend)
                 .occupancyTrend(occupancyTrend)
+                .todayBreakdown(calculateBreakdown(todayLines))
+                .weeklyBreakdown(calculateBreakdown(currentWeekLines))
+                .totalInventoryItems(totalInventoryItems)
+                .inventoryValue(inventoryValue)
+                .lowStockAlerts(lowStockAlerts)
                 .build();
+    }
+    
+    private DashboardStatsResponse.RevenueBreakdown calculateBreakdown(List<com.backend.feni.entity.JournalLine> lines) {
+        BigDecimal roomsRev = BigDecimal.ZERO;
+        BigDecimal barRev = BigDecimal.ZERO;
+        BigDecimal kitchenRev = BigDecimal.ZERO;
+        BigDecimal otherRev = BigDecimal.ZERO;
+
+        for (com.backend.feni.entity.JournalLine jl : lines) {
+            String acc = jl.getAccountName().toUpperCase();
+            if (acc.contains("ROOMS")) {
+                roomsRev = roomsRev.add(jl.getCreditAmount());
+            } else if (acc.contains("BAR")) {
+                barRev = barRev.add(jl.getCreditAmount());
+            } else if (acc.contains("KITCHEN")) {
+                kitchenRev = kitchenRev.add(jl.getCreditAmount());
+            } else {
+                otherRev = otherRev.add(jl.getCreditAmount());
+            }
+        }
+        
+        return DashboardStatsResponse.RevenueBreakdown.builder()
+            .roomsRevenue(roomsRev)
+            .barRevenue(barRev)
+            .kitchenRevenue(kitchenRev)
+            .otherRevenue(otherRev)
+            .totalRevenue(roomsRev.add(barRev).add(kitchenRev).add(otherRev))
+            .build();
     }
 }

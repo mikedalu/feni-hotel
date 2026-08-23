@@ -33,7 +33,7 @@ export default function ReceptionCheckinPage() {
   const [roomNumber, setRoomNumber] = useState('');
   const [roomType, setRoomType] = useState('Standard');
   const [paymentMethod, setPaymentMethod] = useState('POS');
-  const [checkOutDate, setCheckOutDate] = useState(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
+  const [checkOutDate, setCheckOutDate] = useState(() => new Date(Date.now() + 86400000).toISOString().split('T')[0]);
   const [totalCost, setTotalCost] = useState('0');
   const [systemCalculatedCost, setSystemCalculatedCost] = useState<number>(0);
 

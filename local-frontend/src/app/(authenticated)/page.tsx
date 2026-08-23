@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
@@ -20,6 +20,7 @@ export default function Home() {
   const { user } = useAuth();
   const role = user?.role;
   const { data: stats, isLoading } = useDashboardStats();
+  const [breakdownPeriod, setBreakdownPeriod] = useState<'today' | 'week'>('today');
 
   const isAdminOrManager = ['ADMIN', 'MANAGER'].includes(role || '');
 
@@ -95,6 +96,88 @@ export default function Home() {
               </div>
               <div className="h-12 w-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
                 <QrCodeIcon className="h-6 w-6" />
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Stats Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* Revenue Breakdown */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-gray-900">Revenue Breakdown</h3>
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                  <button 
+                    onClick={() => setBreakdownPeriod('today')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${breakdownPeriod === 'today' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Today
+                  </button>
+                  <button 
+                    onClick={() => setBreakdownPeriod('week')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${breakdownPeriod === 'week' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Last 7 Days
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                  <span className="text-sm font-medium text-gray-600">Rooms</span>
+                  <span className="text-base font-bold text-gray-900">₦ {isLoading ? '...' : (breakdownPeriod === 'today' ? stats?.todayBreakdown?.roomsRevenue : stats?.weeklyBreakdown?.roomsRevenue)?.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                  <span className="text-sm font-medium text-gray-600">Bar</span>
+                  <span className="text-base font-bold text-gray-900">₦ {isLoading ? '...' : (breakdownPeriod === 'today' ? stats?.todayBreakdown?.barRevenue : stats?.weeklyBreakdown?.barRevenue)?.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                  <span className="text-sm font-medium text-gray-600">Kitchen</span>
+                  <span className="text-base font-bold text-gray-900">₦ {isLoading ? '...' : (breakdownPeriod === 'today' ? stats?.todayBreakdown?.kitchenRevenue : stats?.weeklyBreakdown?.kitchenRevenue)?.toLocaleString()}</span>
+                </div>
+                {((breakdownPeriod === 'today' ? stats?.todayBreakdown?.otherRevenue : stats?.weeklyBreakdown?.otherRevenue) ?? 0) > 0 && (
+                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                    <span className="text-sm font-medium text-gray-600">Other</span>
+                    <span className="text-base font-bold text-gray-900">₦ {(breakdownPeriod === 'today' ? stats?.todayBreakdown?.otherRevenue : stats?.weeklyBreakdown?.otherRevenue)?.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center p-3 mt-4 border-t border-gray-100">
+                  <span className="text-sm font-bold text-gray-900">Total</span>
+                  <span className="text-lg font-bold text-indigo-600">₦ {isLoading ? '...' : (breakdownPeriod === 'today' ? stats?.todayBreakdown?.totalRevenue : stats?.weeklyBreakdown?.totalRevenue)?.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Inventory Levels */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-6">Inventory Levels</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="p-4 border border-gray-100 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Items</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">{isLoading ? '...' : stats?.totalInventoryItems}</p>
+                  </div>
+                  <div className="h-12 w-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                    <ClipboardDocumentListIcon className="h-6 w-6" />
+                  </div>
+                </div>
+                <div className="p-4 border border-gray-100 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Inventory Value</p>
+                    <p className="text-2xl font-bold text-gray-900 mt-1">₦ {isLoading ? '...' : stats?.inventoryValue?.toLocaleString()}</p>
+                  </div>
+                  <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                    <CurrencyDollarIcon className="h-6 w-6" />
+                  </div>
+                </div>
+                <div className={`p-4 border rounded-xl flex items-center justify-between ${(stats?.lowStockAlerts ?? 0) > 0 ? 'border-rose-200 bg-rose-50' : 'border-gray-100'}`}>
+                  <div>
+                    <p className={`text-sm font-medium ${(stats?.lowStockAlerts ?? 0) > 0 ? 'text-rose-600' : 'text-gray-500'}`}>Low Stock Alerts</p>
+                    <p className={`text-2xl font-bold mt-1 ${(stats?.lowStockAlerts ?? 0) > 0 ? 'text-rose-700' : 'text-gray-900'}`}>{isLoading ? '...' : stats?.lowStockAlerts}</p>
+                  </div>
+                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${(stats?.lowStockAlerts ?? 0) > 0 ? 'bg-rose-100 text-rose-600' : 'bg-gray-50 text-gray-400'}`}>
+                    <ChartPieIcon className="h-6 w-6" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

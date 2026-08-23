@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 
@@ -40,11 +40,16 @@ export default function CheckoutModal({ isOpen, onClose, total, onConfirm, print
     enabled: isOpen
   });
 
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  const [prevTotal, setPrevTotal] = useState(total);
+
+  if (isOpen !== prevIsOpen || (isOpen && total !== prevTotal)) {
+    setPrevIsOpen(isOpen);
+    setPrevTotal(total);
     if (isOpen) {
-      setTenders([{ id: Date.now().toString(), paymentMethod: 'CASH', amount: total }]);
+      setTenders([{ id: '1', paymentMethod: 'CASH', amount: total }]);
     }
-  }, [isOpen, total]);
+  }
 
   if (!isOpen) return null;
 
@@ -61,7 +66,7 @@ export default function CheckoutModal({ isOpen, onClose, total, onConfirm, print
     ]);
   };
 
-  const handleUpdateTender = (id: string, field: keyof SplitTender, value: any) => {
+  const handleUpdateTender = (id: string, field: keyof SplitTender, value: string | number) => {
     setTenders(tenders.map(t => {
       if (t.id === id) {
         return { ...t, [field]: value };
@@ -108,7 +113,7 @@ export default function CheckoutModal({ isOpen, onClose, total, onConfirm, print
               </button>
             </div>
 
-            {tenders.map((tender, index) => (
+            {tenders.map((tender) => (
               <div key={tender.id} className="p-4 border rounded-xl space-y-3 bg-white shadow-sm relative group">
                 {tenders.length > 1 && (
                   <button 

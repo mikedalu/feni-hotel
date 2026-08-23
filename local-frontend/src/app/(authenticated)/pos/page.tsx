@@ -87,7 +87,7 @@ export default function POSPage() {
     }
   });
 
-  const handleCheckout = async (splitTenders: any[], selectedPrinterIp: string) => {
+  const handleCheckout = async (splitTenders: { paymentMethod: string; amount: number; smartPosTerminalId?: string }[], selectedPrinterIp: string) => {
     if (cart.length === 0) return;
     setIsProcessing(true);
 
@@ -116,7 +116,7 @@ export default function POSPage() {
           if (errData && errData.message) {
             errorMsg = errData.message;
           }
-        } catch (e) {
+        } catch {
           // ignore parsing error if it's not JSON
         }
         throw new Error(errorMsg);
@@ -125,9 +125,9 @@ export default function POSPage() {
       setCart([]);
       setIsCheckoutModalOpen(false);
       toast.success("Sale completed successfully!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Failed to complete sale.");
+      toast.error(err instanceof Error ? err.message : "Failed to complete sale.");
     } finally {
       setIsProcessing(false);
     }
@@ -160,14 +160,14 @@ export default function POSPage() {
           if (errData && errData.message) {
             errorMsg = errData.message;
           }
-        } catch (e) {}
+        } catch {}
         throw new Error(errorMsg);
       }
       
       toast.success("Bill sent to printer successfully!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Print bill error:", err);
-      toast.error(err.message || "Failed to print bill");
+      toast.error(err instanceof Error ? err.message : "Failed to print bill");
     } finally {
       setIsProcessing(false);
     }
@@ -200,7 +200,7 @@ export default function POSPage() {
           if (errData && errData.message) {
             errorMsg = errData.message;
           }
-        } catch (e) {}
+        } catch {}
         throw new Error(errorMsg);
       }
       
@@ -223,9 +223,9 @@ export default function POSPage() {
       window.URL.revokeObjectURL(objectUrl);
       toast.success("Invoice downloaded successfully!");
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Failed to download invoice.");
+      toast.error(err instanceof Error ? err.message : "Failed to download invoice.");
     } finally {
       setIsProcessing(false);
     }

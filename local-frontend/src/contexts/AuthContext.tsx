@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { setToken } from "@/lib/apiClient";
 import { useRouter } from "next/navigation";
 
@@ -51,13 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem("feni_token", token);
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setToken(null);
     setUser(null);
     sessionStorage.removeItem("feni_user");
     sessionStorage.removeItem("feni_token");
     router.push("/login");
-  };
+  }, [router]);
 
   // Idle timeout logic
   useEffect(() => {

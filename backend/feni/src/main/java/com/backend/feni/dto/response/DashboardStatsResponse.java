@@ -21,6 +21,25 @@ public class DashboardStatsResponse {
     private int pendingCheckins;
     private List<DailyRevenue> revenueTrend;
     private List<DailyOccupancy> occupancyTrend;
+    
+    private RevenueBreakdown todayBreakdown;
+    private RevenueBreakdown weeklyBreakdown;
+    
+    private int totalInventoryItems;
+    private BigDecimal inventoryValue;
+    private int lowStockAlerts;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RevenueBreakdown {
+        private BigDecimal roomsRevenue;
+        private BigDecimal barRevenue;
+        private BigDecimal kitchenRevenue;
+        private BigDecimal otherRevenue;
+        private BigDecimal totalRevenue;
+    }
 
     @Data
     @Builder

@@ -64,8 +64,8 @@ export default function AdminSettingsPage() {
       setNewPassword('');
       setConfirmPassword('');
     },
-    onError: (err: any) => {
-      setErrorMsg(err.message || 'An error occurred');
+    onError: (err: unknown) => {
+      setErrorMsg(err instanceof Error ? err.message : 'An error occurred');
     }
   });
 

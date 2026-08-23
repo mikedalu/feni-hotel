@@ -11,6 +11,14 @@ export interface DailyOccupancy {
   occupancy: number;
 }
 
+export interface RevenueBreakdown {
+  roomsRevenue: number;
+  barRevenue: number;
+  kitchenRevenue: number;
+  otherRevenue: number;
+  totalRevenue: number;
+}
+
 export interface DashboardStats {
   totalRevenue: number;
   revenuePercentageChange: number;
@@ -20,6 +28,11 @@ export interface DashboardStats {
   pendingCheckins: number;
   revenueTrend: DailyRevenue[];
   occupancyTrend: DailyOccupancy[];
+  todayBreakdown: RevenueBreakdown;
+  weeklyBreakdown: RevenueBreakdown;
+  totalInventoryItems: number;
+  inventoryValue: number;
+  lowStockAlerts: number;
 }
 
 export const useDashboardStats = () => {

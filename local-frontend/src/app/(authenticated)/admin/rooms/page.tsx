@@ -29,12 +29,13 @@ export default function AdminRoomsSetup() {
     }
   });
 
+  const [initializedRoomType, setInitializedRoomType] = useState(false);
+
   // Automatically set default roomType if available and not yet set
-  React.useEffect(() => {
-    if (roomTypes.length > 0 && !newRoom.roomType) {
-      setNewRoom(prev => ({ ...prev, roomType: roomTypes[0].name, basePrice: roomTypes[0].basePrice }));
-    }
-  }, [roomTypes, newRoom.roomType]);
+  if (roomTypes.length > 0 && !initializedRoomType) {
+    setNewRoom(prev => ({ ...prev, roomType: roomTypes[0].name, basePrice: roomTypes[0].basePrice }));
+    setInitializedRoomType(true);
+  }
 
   const { data: rooms = [], isLoading } = useQuery<RoomResponse[]>({
     queryKey: ['rooms'],

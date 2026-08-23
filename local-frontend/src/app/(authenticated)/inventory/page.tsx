@@ -225,18 +225,25 @@ export default function InventoryPage() {
                           <option value="bulk">{item.product.bulkUnit || 'Bulk Unit'} (x{item.product.conversionRatio || 1})</option>
                         </select>
                         {item.isBulkIntake && (
-                          <input 
-                            type="number" 
-                            step="0.01"
-                            placeholder="Total Cost (₦)" 
-                            value={item.totalCost}
-                            onChange={e => {
-                              const val = e.target.value === '' ? '' : parseFloat(e.target.value);
-                              setCart(prev => prev.map(i => i.product.id === item.product.id ? { ...i, totalCost: val } : i));
-                            }}
-                            className="border border-gray-300 rounded px-2 py-1 text-sm w-32 placeholder:text-xs"
-                            title="Optional: Enter the total cost paid for this bulk intake to recalculate unit cost."
-                          />
+                          <div className="flex flex-col gap-1">
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              placeholder={`Total Cost per ${item.product.bulkUnit || 'Bulk Unit'} (₦)`}
+                              value={item.totalCost}
+                              onChange={e => {
+                                const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                setCart(prev => prev.map(i => i.product.id === item.product.id ? { ...i, totalCost: val } : i));
+                              }}
+                              className="border border-gray-300 rounded px-2 py-1 text-sm w-full placeholder:text-xs"
+                              title={`Optional: Enter the total cost paid for one ${item.product.bulkUnit || 'bulk unit'} to recalculate unit cost.`}
+                            />
+                            {item.totalCost !== '' && item.totalCost !== undefined && item.product.conversionRatio && (
+                              <span className="text-[10px] text-gray-500 font-medium">
+                                ≈ ₦{(item.totalCost / item.product.conversionRatio).toFixed(2)} per {item.product.baseUnit || 'unit'}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     );

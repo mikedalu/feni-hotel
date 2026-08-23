@@ -1,5 +1,5 @@
 import { CartItem } from "@/types/pos";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface CartSidebarProps {
   cart: CartItem[];
