@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
 import { Product, ProductType, RevenueCenter } from '@/types/product';
 import toast, { Toaster } from 'react-hot-toast';
@@ -29,7 +30,18 @@ export default function ProductsPage() {
     baseUnit: 'Bottle',
     bulkUnit: 'Carton',
     conversionRatio: 1,
+    taxBracketIds: [],
   });
+
+  const { data: taxBrackets = [] } = useQuery({
+    queryKey: ['taxBrackets'],
+    queryFn: async () => {
+      const res = await apiClient('/api/proxy/admin/tax-brackets');
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+  const activeTaxBrackets = taxBrackets.filter((t: { id: string; name: string; rate: number; isActive: boolean }) => t.isActive);
 
   const fetchProducts = async () => {
     try {
@@ -57,7 +69,10 @@ export default function ProductsPage() {
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormData(product);
+      setFormData({
+        ...product,
+        taxBracketIds: product.taxBrackets ? product.taxBrackets.map((t: { id: string }) => t.id) : [],
+      });
     } else {
       setEditingProduct(null);
       setFormData({
@@ -73,6 +88,7 @@ export default function ProductsPage() {
         baseUnit: 'Bottle',
         bulkUnit: 'Carton',
         conversionRatio: 1,
+        taxBracketIds: [],
       });
     }
     setIsModalOpen(true);
@@ -267,6 +283,34 @@ export default function ProductsPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Low Stock Threshold</label>
                     <input required type="number" min="0" value={formData.lowStockThreshold || 0} onChange={e => setFormData({...formData, lowStockThreshold: parseInt(e.target.value)})} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+                  </div>
+                </div>
+              )}
+
+              {activeTaxBrackets.length > 0 && (
+                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Applicable Taxes</h3>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {activeTaxBrackets.map((tax: { id: string; name: string; rate: number; isActive: boolean }) => (
+                      <label key={tax.id} className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={formData.taxBracketIds?.includes(tax.id) || false}
+                          onChange={(e) => {
+                            const current = formData.taxBracketIds || [];
+                            if (e.target.checked) {
+                              setFormData({ ...formData, taxBracketIds: [...current, tax.id] });
+                            } else {
+                              setFormData({ ...formData, taxBracketIds: current.filter(id => id !== tax.id) });
+                            }
+                          }}
+                        />
+                        <span className="text-sm text-gray-700">
+                          {tax.name} ({tax.rate}%)
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               )}

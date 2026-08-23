@@ -23,4 +23,6 @@ public class ChangeRoomRequest {
 
     @NotNull(message = "paymentMethod is required")
     private PaymentMethod paymentMethod;
+
+    private java.util.UUID smartPosTerminalId;
 }

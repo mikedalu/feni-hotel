@@ -60,6 +60,7 @@ export interface BookingRequest {
 
   overrideReason?: string;
   printerIp?: string;
+  smartPosTerminalId?: string;
 }
 
 export interface ChangeRoomRequest {
@@ -67,10 +68,12 @@ export interface ChangeRoomRequest {
   newRoomType: string;
   newTotalCost: number;
   paymentMethod: string;
+  smartPosTerminalId?: string;
 }
 
 export interface ExtendBookingRequest {
   newCheckOutDate: string;
   additionalCost: number;
   paymentMethod: string;
+  smartPosTerminalId?: string;
 }

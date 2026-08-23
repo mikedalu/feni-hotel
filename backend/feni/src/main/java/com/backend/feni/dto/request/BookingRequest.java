@@ -46,6 +46,8 @@ public class BookingRequest {
     @NotNull
     private PaymentMethod paymentMethod;
 
+    private java.util.UUID smartPosTerminalId;
+
     @NotNull
     private BigDecimal totalCost;
 

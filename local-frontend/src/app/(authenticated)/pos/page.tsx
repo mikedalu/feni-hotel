@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Product, CartItem, PosSaleRequest } from "@/types/pos";
+import { Product, CartItem } from "@/types/pos";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import ProductGrid from "@/components/pos/ProductGrid";
 import CartSidebar from "@/components/pos/CartSidebar";
@@ -138,12 +138,12 @@ export default function POSPage() {
     setIsProcessing(true);
     
     try {
-      const request: PosSaleRequest = {
+      const request = {
         items: cart.map(item => ({
           skuOrBarcode: item.internalSku,
           quantity: item.cartQuantity
         })),
-        paymentMethod: "CASH", // Not used for printing, but required by DTO
+        splitTenders: [], // Not used for printing pre-receipt
         printerIp: printerIp.trim()
       };
 
@@ -182,7 +182,7 @@ export default function POSPage() {
         skuOrBarcode: item.internalSku,
         quantity: item.cartQuantity
       })),
-      paymentMethod: "CASH", // Required by DTO but doesn't affect invoice
+      splitTenders: [], // Required by DTO but empty since no payment made
       printerIp: undefined
     };
 

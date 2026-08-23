@@ -16,4 +16,6 @@ public class IncidentalDepositRequest {
 
     @NotNull(message = "paymentMethod is required")
     private PaymentMethod paymentMethod;
+
+    private java.util.UUID smartPosTerminalId;
 }

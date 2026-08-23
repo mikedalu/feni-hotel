@@ -36,6 +36,29 @@ public class BookingService {
     private final ThermalPrinterService thermalPrinterService;
     private final ReportService reportService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final SmartPosTerminalRepository smartPosRepo;
+
+    private String resolvePaymentAccountName(PaymentMethod method, UUID terminalId) {
+        return switch (method) {
+            case CASH -> "Cash";
+            case POS -> {
+                if (terminalId != null) {
+                    yield smartPosRepo.findById(terminalId)
+                            .map(t -> "Card Payments - " + t.getName())
+                            .orElse("Card Payments");
+                }
+                yield "Card Payments";
+            }
+            case TRANSFER -> {
+                if (terminalId != null) {
+                    yield smartPosRepo.findById(terminalId)
+                            .map(t -> "Bank Transfers - " + t.getName())
+                            .orElse("Bank Transfers");
+                }
+                yield "Bank Transfers";
+            }
+        };
+    }
 
     @Transactional
     public void createBooking(BookingRequest request, UUID staffId) {
@@ -95,11 +118,7 @@ public class BookingService {
                 .processedBy(staffUser)
                 .build();
 
-        String debitAccount = switch (request.getPaymentMethod()) {
-            case CASH -> "Cash";
-            case POS -> "Card Payments";
-            case TRANSFER -> "Bank Transfers";
-        };
+        String debitAccount = resolvePaymentAccountName(request.getPaymentMethod(), request.getSmartPosTerminalId());
 
         journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(request.getTotalCost()).creditAmount(BigDecimal.ZERO).build());
         journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue - ROOMS").debitAmount(BigDecimal.ZERO).creditAmount(request.getTotalCost()).build());
@@ -233,11 +252,7 @@ public class BookingService {
                     .processedBy(staffUser)
                     .build();
 
-            String paymentAccount = switch (request.getPaymentMethod()) {
-                case CASH -> "Cash";
-                case POS -> "Card Payments";
-                case TRANSFER -> "Bank Transfers";
-            };
+            String paymentAccount = resolvePaymentAccountName(request.getPaymentMethod(), request.getSmartPosTerminalId());
 
             if (difference.compareTo(BigDecimal.ZERO) > 0) {
                 // Upgrade: Debit cash, Credit revenue
@@ -319,11 +334,7 @@ public class BookingService {
                     .processedBy(staffUser)
                     .build();
 
-            String paymentAccount = switch (request.getPaymentMethod()) {
-                case CASH -> "Cash";
-                case POS -> "Card Payments";
-                case TRANSFER -> "Bank Transfers";
-            };
+            String paymentAccount = resolvePaymentAccountName(request.getPaymentMethod(), request.getSmartPosTerminalId());
 
             journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(request.getAdditionalCost()).creditAmount(BigDecimal.ZERO).build());
             journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue - ROOMS").debitAmount(BigDecimal.ZERO).creditAmount(request.getAdditionalCost()).build());
@@ -390,11 +401,7 @@ public class BookingService {
                 .processedBy(staffUser)
                 .build();
 
-        String paymentAccount = switch (request.getPaymentMethod()) {
-            case CASH -> "Cash";
-            case POS -> "Card Payments";
-            case TRANSFER -> "Bank Transfers";
-        };
+        String paymentAccount = resolvePaymentAccountName(request.getPaymentMethod(), request.getSmartPosTerminalId());
 
         journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(request.getAmount()).creditAmount(BigDecimal.ZERO).build());
         journalEntry.addLine(JournalLine.builder().accountName("Customer Deposits").debitAmount(BigDecimal.ZERO).creditAmount(request.getAmount()).build());
@@ -440,11 +447,7 @@ public class BookingService {
                 .processedBy(staffUser)
                 .build();
 
-        String paymentAccount = switch (request.getPaymentMethod()) {
-            case CASH -> "Cash";
-            case POS -> "Card Payments";
-            case TRANSFER -> "Bank Transfers";
-        };
+        String paymentAccount = resolvePaymentAccountName(request.getPaymentMethod(), request.getSmartPosTerminalId());
 
         journalEntry.addLine(JournalLine.builder().accountName("Customer Deposits").debitAmount(request.getAmount()).creditAmount(BigDecimal.ZERO).build());
         journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(BigDecimal.ZERO).creditAmount(request.getAmount()).build());

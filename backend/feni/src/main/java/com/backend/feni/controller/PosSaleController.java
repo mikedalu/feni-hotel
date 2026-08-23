@@ -21,6 +21,9 @@ public class PosSaleController {
     @PostMapping("/sale")
     @ResponseStatus(HttpStatus.CREATED)
     public void completeSale(@Valid @RequestBody PosSaleRequest request, @AuthenticationPrincipal Jwt jwt) {
+        if (request.getSplitTenders() == null || request.getSplitTenders().isEmpty()) {
+            throw new IllegalArgumentException("splitTenders cannot be empty for a completed sale");
+        }
         UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
         posSaleService.completeSale(request, staffId);
     }

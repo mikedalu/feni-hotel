@@ -15,7 +15,6 @@ public class PosSaleRequest {
     private List<PosSaleItemRequest> items;
 
     @Valid
-    @NotEmpty
     private List<SplitTenderRequest> splitTenders;
 
     // Optional printer IP to send the receipt to. If null, no receipt is printed.

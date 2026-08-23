@@ -24,4 +24,5 @@ public class ProductResponse {
     private String baseUnit;
     private String bulkUnit;
     private Integer conversionRatio;
+    private java.util.List<TaxBracketResponse> taxBrackets;
 }

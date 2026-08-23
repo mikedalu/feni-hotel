@@ -45,4 +45,6 @@ public class ProductRequest {
     
     @PositiveOrZero(message = "Conversion ratio must be positive")
     private Integer conversionRatio;
+
+    private java.util.Set<java.util.UUID> taxBracketIds;
 }

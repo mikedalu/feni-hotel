@@ -15,4 +15,6 @@ export interface Product {
   baseUnit?: string;
   bulkUnit?: string;
   conversionRatio?: number;
+  taxBracketIds?: string[];
+  taxBrackets?: { id: string; name: string; rate: number; isActive: boolean }[];
 }

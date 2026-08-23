@@ -27,6 +27,16 @@ export default function ManualBookingPage() {
     }
   });
 
+  const { data: terminals = [] } = useQuery({
+    queryKey: ['smartPosTerminals'],
+    queryFn: async () => {
+      const res = await apiClient('/api/proxy/admin/smart-pos');
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+  const activeTerminals = terminals.filter((t: { id: string; name: string; isActive: boolean }) => t.isActive);
+
   const availableRooms = rooms.filter(r => r.status === 'AVAILABLE');
   const availableRoomTypes = Array.from(new Set(availableRooms.map(r => r.roomType)));
 
@@ -67,6 +77,7 @@ export default function ManualBookingPage() {
       paymentMethod: 'CASH',
       totalCost: 0,
       printerIp,
+      smartPosTerminalId: '',
     };
   });
 
@@ -127,10 +138,15 @@ export default function ManualBookingPage() {
     setLoading(true);
     setError(null);
     try {
+      const payload = { ...formData };
+      if (payload.paymentMethod === 'CASH') {
+        payload.smartPosTerminalId = undefined;
+      }
+      
       const res = await apiClient('/api/proxy/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -421,6 +437,22 @@ export default function ManualBookingPage() {
                       <option value="TRANSFER">Bank Transfer</option>
                     </select>
                   </div>
+                  {(formData.paymentMethod === 'POS' || formData.paymentMethod === 'TRANSFER') && activeTerminals.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Smart POS Terminal</label>
+                      <select 
+                        name="smartPosTerminalId"
+                        value={formData.smartPosTerminalId || ''} 
+                        onChange={handleChange} 
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white"
+                      >
+                        <option value="">-- Select Terminal (Optional) --</option>
+                        {activeTerminals.map((term: { id: string; name: string; isActive: boolean }) => (
+                          <option key={term.id} value={term.id}>{term.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Total Cost (₦) *</label>
                     <input

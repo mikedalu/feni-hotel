@@ -2,8 +2,11 @@ package com.backend.feni.controller;
 
 import com.backend.feni.dto.request.ProductRequest;
 import com.backend.feni.dto.response.ProductResponse;
+import com.backend.feni.dto.response.TaxBracketResponse;
 import com.backend.feni.entity.Product;
+import com.backend.feni.entity.TaxBracket;
 import com.backend.feni.repository.ProductRepository;
+import com.backend.feni.repository.TaxBracketRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductController {
 
     private final ProductRepository productRepository;
+    private final TaxBracketRepository taxBracketRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
@@ -52,6 +56,12 @@ public class ProductController {
                 .bulkUnit(request.getBulkUnit())
                 .conversionRatio(request.getConversionRatio() != null ? request.getConversionRatio() : 1)
                 .build();
+                
+        if (request.getTaxBracketIds() != null && !request.getTaxBracketIds().isEmpty()) {
+            List<TaxBracket> taxBrackets = taxBracketRepository.findAllById(request.getTaxBracketIds());
+            product.setTaxBrackets(new java.util.HashSet<>(taxBrackets));
+        }
+        
         Product saved = productRepository.save(product);
         createProductOutboxEvent(saved);
         return mapToResponse(saved);
@@ -75,6 +85,13 @@ public class ProductController {
         product.setBaseUnit(request.getBaseUnit());
         product.setBulkUnit(request.getBulkUnit());
         product.setConversionRatio(request.getConversionRatio() != null ? request.getConversionRatio() : 1);
+
+        if (request.getTaxBracketIds() != null && !request.getTaxBracketIds().isEmpty()) {
+            List<TaxBracket> taxBrackets = taxBracketRepository.findAllById(request.getTaxBracketIds());
+            product.setTaxBrackets(new java.util.HashSet<>(taxBrackets));
+        } else {
+            product.getTaxBrackets().clear();
+        }
 
         Product saved = productRepository.save(product);
         createProductOutboxEvent(saved);
@@ -113,6 +130,18 @@ public class ProductController {
                 .baseUnit(product.getBaseUnit())
                 .bulkUnit(product.getBulkUnit())
                 .conversionRatio(product.getConversionRatio())
+                .taxBrackets(product.getTaxBrackets() != null ? 
+                    product.getTaxBrackets().stream().map(this::mapTaxBracketToResponse).collect(Collectors.toList()) : null)
+                .build();
+    }
+    
+    private TaxBracketResponse mapTaxBracketToResponse(TaxBracket taxBracket) {
+        return TaxBracketResponse.builder()
+                .id(taxBracket.getId())
+                .name(taxBracket.getName())
+                .rate(taxBracket.getRate())
+                .liabilityAccountName(taxBracket.getLiabilityAccountName())
+                .isActive(taxBracket.getIsActive())
                 .build();
     }
 }

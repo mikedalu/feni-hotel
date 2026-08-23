@@ -135,7 +135,14 @@ public class PosSaleService {
                     }
                     yield "Card Payments";
                 }
-                case TRANSFER -> "Bank Transfers";
+                case TRANSFER -> {
+                    if (tender.getSmartPosTerminalId() != null) {
+                        yield smartPosRepo.findById(tender.getSmartPosTerminalId())
+                            .map(t -> "Bank Transfers - " + t.getName())
+                            .orElse("Bank Transfers");
+                    }
+                    yield "Bank Transfers";
+                }
             };
             
             journalEntry.addLine(JournalLine.builder()

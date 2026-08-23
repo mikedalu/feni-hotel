@@ -148,7 +148,7 @@ export default function CheckoutModal({ isOpen, onClose, total, onConfirm, print
                   </div>
                 </div>
 
-                {tender.paymentMethod === 'POS' && activeTerminals.length > 0 && (
+                {(tender.paymentMethod === 'POS' || tender.paymentMethod === 'TRANSFER') && activeTerminals.length > 0 && (
                   <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Smart POS Terminal</label>
                     <select 
