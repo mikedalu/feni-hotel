@@ -85,7 +85,7 @@ jobs:
     steps:
       - name: Trigger Facility Server Webhook
         run: |
-          curl -X POST -H "Authorization: Bearer ${{ secrets.FACILITY_WEBHOOK_SECRET }}" \
+          curl -k -X POST -H "Authorization: Bearer ${{ secrets.FACILITY_WEBHOOK_SECRET }}" \
           -H "Content-Type: application/json" \
           -d '{"action":"deploy", "backend_image":"${{ env.REGISTRY }}/${{ github.repository }}-backend:latest", "frontend_image":"${{ env.REGISTRY }}/${{ github.repository }}-frontend:latest"}' \
           https://hotel-hub.local/api/webhooks/deploy
