@@ -201,7 +201,7 @@ durable on top of it — don't silently fix it as a side effect of unrelated wor
 
 Two distinct audiences need reports, with different scope and access:
 
-### Admin (full facility + cross-facility via cloud dashboard)
+### Admin (full facility via cloud dashboard)
 
 - **P&L statement** — already scoped in §8 remaining work: query `journal_lines`
   grouped by `account_name`/`entry_type`, render PDF, store in R2, return a signed
@@ -222,7 +222,7 @@ Two distinct audiences need reports, with different scope and access:
   `processedBy` reference on `Sale`/`Booking`/wherever the originating record lives —
   not yet on any entity; flag this as a schema addition when you get to this report).
 
-### Front Desk (local, facility-scoped only — no cross-facility/cloud access needed)
+### Front Desk (local, facility-scoped only — no cloud access needed)
 
 - **Occupancy report** — current bookings, check-ins/check-outs for a given day or
   range, sourced from `Booking` directly (not the ledger — occupancy isn't a
@@ -235,7 +235,7 @@ Two distinct audiences need reports, with different scope and access:
 
 - All PDF generation happens on the **local** Spring Boot server for local/front-desk
   reports (must work offline), and can happen on the **cloud** Next.js side for
-  cross-facility Admin views (P&L across multiple properties, for example).
+  cloud Admin views.
 - Reuse the `pdf` skill/tooling conventions already established for R2-bound PDFs
   (self-check-in ID scans already upload to R2 — same client, same bucket
   conventions, different key prefix, e.g. `reports/{facilityId}/{reportType}/{date}.pdf`).

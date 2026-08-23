@@ -66,7 +66,7 @@ export default function AdminSidebar({ session }: { session: any }) {
             <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</p>
           </div>
 
-          <Link onClick={() => setIsOpen(false)} href="#" className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg font-medium transition-colors">
+          <Link onClick={() => setIsOpen(false)} href="/admin/settings" className="flex items-center gap-3 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg font-medium transition-colors">
             <Settings className="w-5 h-5" />
             Settings
           </Link>
