@@ -42,6 +42,7 @@ export default function ExtendBookingModal({ booking, onClose, onSubmit, isSubmi
       
       const room = rooms.find(r => r.roomNumber === booking.roomNumber);
       if (room) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAdditionalCost(diffDays * room.currentPrice);
       }
     } else {

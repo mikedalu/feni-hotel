@@ -39,7 +39,7 @@ export default function ManualBookingPage() {
         try {
           const parsed = JSON.parse(saved);
           return { ...parsed, printerIp: printerIp || parsed.printerIp };
-        } catch (e) {}
+        } catch {}
       }
     }
     return {
