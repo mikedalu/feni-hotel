@@ -5,12 +5,15 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingUp, Users, DollarSign, Activity, Info } from "lucide-react";
 
 export default function DashboardPage() {
+  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('month');
   const [data, setData] = useState<{ summary: any; chartData: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/reports/pnl")
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    fetch(`/api/reports/pnl?period=${period}`)
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch dashboard data");
         return res.json();
@@ -18,7 +21,7 @@ export default function DashboardPage() {
       .then(d => setData(d))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [period]);
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading dashboard...</div>;
   if (error) return <div className="p-8 text-center text-red-500">Error: {error}</div>;
@@ -26,9 +29,32 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div>
-        <h2 className="text-3xl font-bold text-gray-900">Hotel Overview</h2>
-        <p className="text-gray-500 mt-1">Real-time financial and operational metrics for Feni Hotel.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900">Hotel Overview</h2>
+          <p className="text-gray-500 mt-1">Real-time financial and operational metrics for Feni Hotel.</p>
+        </div>
+        
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          <button 
+            onClick={() => setPeriod('today')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${period === 'today' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Today
+          </button>
+          <button 
+            onClick={() => setPeriod('week')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${period === 'week' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Last 7 Days
+          </button>
+          <button 
+            onClick={() => setPeriod('month')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${period === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Last 30 Days
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -114,8 +140,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Chart Section */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">Revenue vs COGS (Last 30 Days)</h3>
+      {period !== 'today' && (
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900 mb-6">
+            Revenue vs COGS {period === 'week' ? '(Last 7 Days)' : '(Last 30 Days)'}
+          </h3>
         
         {data.chartData.length === 0 ? (
           <div className="h-[400px] flex items-center justify-center text-gray-400 bg-gray-50 rounded-xl border border-dashed">
@@ -166,6 +195,7 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

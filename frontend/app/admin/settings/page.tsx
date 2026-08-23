@@ -23,12 +23,9 @@ export default function CloudAdminSettingsPage() {
   const [copied, setCopied] = useState(false);
   const [showKey, setShowKey] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-    fetchFacility();
-  }, []);
 
-  const fetchProfile = async () => {
+
+  async function fetchProfile() {
     try {
       const res = await fetch('/api/settings/profile');
       if (res.ok) {
@@ -43,7 +40,7 @@ export default function CloudAdminSettingsPage() {
     }
   };
 
-  const fetchFacility = async () => {
+  async function fetchFacility() {
     try {
       const res = await fetch('/api/settings/facilities');
       if (res.ok) {
@@ -56,6 +53,12 @@ export default function CloudAdminSettingsPage() {
       setFacilityLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchProfile();
+    fetchFacility();
+  }, []);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

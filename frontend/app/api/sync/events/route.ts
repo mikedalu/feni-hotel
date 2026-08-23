@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payload must be a JSON array of events' }, { status: 400 });
     }
 
-    const processedIds: String[] = [];
+    const processedIds: string[] = [];
 
     // Process events idempotently
     for (const event of events) {

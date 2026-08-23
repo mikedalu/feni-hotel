@@ -7,13 +7,38 @@ import { PrismaPg } from '@prisma/adapter-pg';
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL as string });
 const prisma = new PrismaClient({ adapter });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const period = searchParams.get('period') || 'month';
+
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    if (period === 'month') {
+      startDate.setDate(startDate.getDate() - 30);
+    } else if (period === 'week') {
+      startDate.setDate(startDate.getDate() - 7);
+    } // if 'today', startDate is already today at 00:00:00
+
     // 1. Fetch total bookings occupancy proxy
-    const totalBookings = await prisma.booking.count();
+    const totalBookings = await prisma.booking.count({
+      where: {
+        createdAt: {
+          gte: startDate,
+        }
+      }
+    });
 
     // 2. Fetch all journal lines to aggregate revenue and COGS
     const lines = await prisma.journalLine.findMany({
+      where: {
+        journalEntry: {
+          createdAt: {
+            gte: startDate,
+          }
+        }
+      },
       include: {
         journalEntry: true,
       },
