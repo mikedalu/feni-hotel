@@ -40,7 +40,7 @@ export default async function InventoryReportPage() {
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Inventory Value</h3>
           <p className="text-3xl font-bold text-gray-900 mt-2">
-            ${totalInventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ₦{totalInventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
         <div className="bg-red-50 rounded-xl p-6 shadow-sm border border-red-100">
@@ -98,10 +98,10 @@ export default async function InventoryReportPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                          ${Number(product.cost).toFixed(2)}
+                          ₦{Number(product.cost).toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">
-                          ${value.toFixed(2)}
+                          ₦{value.toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           {isLowStock ? (
@@ -155,11 +155,11 @@ export default async function InventoryReportPage() {
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Unit Cost</p>
-                        <p className="font-semibold text-gray-900">${Number(product.cost).toFixed(2)}</p>
+                        <p className="font-semibold text-gray-900">₦{Number(product.cost).toFixed(2)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Total Value</p>
-                        <p className="font-semibold text-gray-900">${value.toFixed(2)}</p>
+                        <p className="font-semibold text-gray-900">₦{value.toFixed(2)}</p>
                       </div>
                     </div>
                   </div>
