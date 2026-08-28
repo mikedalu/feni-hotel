@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -62,6 +65,13 @@ public class BookingService {
 
     @Transactional
     public void createBooking(BookingRequest request, UUID staffId) {
+        if (!request.getCheckOutDate().isAfter(request.getCheckInDate())) {
+            throw new IllegalArgumentException("Check-out date must be after check-in date");
+        }
+        if (request.getSplitTenders() == null || request.getSplitTenders().isEmpty()) {
+            throw new IllegalArgumentException("At least one tender is required for check-in");
+        }
+
         StaffUser staffUser = staffRepo.findById(staffId)
                 .orElseThrow(() -> new IllegalArgumentException("Staff user not found"));
 
@@ -70,6 +80,11 @@ public class BookingService {
         
         if (room.getStatus() != RoomStatus.AVAILABLE) {
             throw new IllegalStateException("Room is not available for check-in");
+        }
+
+        List<Booking> overlaps = bookingRepo.findOverlappingBookings(room.getRoomNumber(), request.getCheckInDate(), request.getCheckOutDate());
+        if (!overlaps.isEmpty()) {
+            throw new IllegalStateException("Room is already booked for the selected dates");
         }
 
         Guest guest = guestRepo.findFirstByEmailAndFirstNameIgnoreCaseAndLastNameIgnoreCase(
@@ -102,7 +117,7 @@ public class BookingService {
                 .roomNumber(room.getRoomNumber())
                 .roomType(request.getRoomType())
                 .checkInTime(request.getCheckInTime())
-                .paymentMethod(request.getPaymentMethod())
+                .paymentMethod(request.getSplitTenders().get(0).getPaymentMethod())
                 .totalCost(request.getTotalCost())
                 .status(BookingStatus.CHECKED_IN)
                 .priceOverrideReason(request.getOverrideReason())
@@ -118,9 +133,17 @@ public class BookingService {
                 .processedBy(staffUser)
                 .build();
 
-        String debitAccount = resolvePaymentAccountName(request.getPaymentMethod(), request.getSmartPosTerminalId());
+        BigDecimal tenderedTotal = BigDecimal.ZERO;
+        for (BookingRequest.SplitTenderRequest tender : request.getSplitTenders()) {
+            tenderedTotal = tenderedTotal.add(tender.getAmount());
+            String debitAccount = resolvePaymentAccountName(tender.getPaymentMethod(), tender.getSmartPosTerminalId());
+            journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(tender.getAmount()).creditAmount(BigDecimal.ZERO).build());
+        }
 
-        journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(request.getTotalCost()).creditAmount(BigDecimal.ZERO).build());
+        if (tenderedTotal.compareTo(request.getTotalCost()) != 0) {
+            throw new IllegalArgumentException("Sum of split tenders (" + tenderedTotal + ") does not match total cost (" + request.getTotalCost() + ")");
+        }
+
         journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue - ROOMS").debitAmount(BigDecimal.ZERO).creditAmount(request.getTotalCost()).build());
 
         BigDecimal totalDebit = journalEntry.getLines().stream().map(JournalLine::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -177,8 +200,8 @@ public class BookingService {
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         
-        if (booking.getStatus() != BookingStatus.CHECKED_IN) {
-            throw new IllegalStateException("Booking is not in CHECKED_IN state");
+        if (booking.getStatus() != BookingStatus.CHECKED_IN && booking.getStatus() != BookingStatus.OVERDUE) {
+            throw new IllegalStateException("Booking is not in CHECKED_IN or OVERDUE state");
         }
 
         booking.setStatus(BookingStatus.CHECKED_OUT);
@@ -228,6 +251,11 @@ public class BookingService {
             throw new IllegalStateException("New room is not available");
         }
 
+        List<Booking> overlaps = bookingRepo.findOverlappingBookings(newRoom.getRoomNumber(), booking.getCheckInDate(), booking.getCheckOutDate());
+        if (!overlaps.isEmpty()) {
+            throw new IllegalStateException("New room is already booked for the current dates");
+        }
+
         // 1. Mark old room DIRTY (if it exists)
         roomRepo.findByRoomNumber(booking.getRoomNumber()).ifPresent(room -> {
             room.setStatus(RoomStatus.DIRTY);
@@ -252,17 +280,35 @@ public class BookingService {
                     .processedBy(staffUser)
                     .build();
 
-            String paymentAccount = resolvePaymentAccountName(request.getPaymentMethod(), request.getSmartPosTerminalId());
-
             if (difference.compareTo(BigDecimal.ZERO) > 0) {
-                // Upgrade: Debit cash, Credit revenue
-                journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(difference).creditAmount(BigDecimal.ZERO).build());
+                if (request.getSplitTenders() == null || request.getSplitTenders().isEmpty()) {
+                    throw new IllegalArgumentException("Split tenders are required for room upgrades");
+                }
+                BigDecimal tenderedTotal = BigDecimal.ZERO;
+                for (ChangeRoomRequest.SplitTenderRequest tender : request.getSplitTenders()) {
+                    tenderedTotal = tenderedTotal.add(tender.getAmount());
+                    String paymentAccount = resolvePaymentAccountName(tender.getPaymentMethod(), tender.getSmartPosTerminalId());
+                    journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(tender.getAmount()).creditAmount(BigDecimal.ZERO).build());
+                }
+                if (tenderedTotal.compareTo(difference) != 0) {
+                    throw new IllegalArgumentException("Sum of split tenders (" + tenderedTotal + ") does not match upgrade difference (" + difference + ")");
+                }
                 journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue - ROOMS").debitAmount(BigDecimal.ZERO).creditAmount(difference).build());
             } else {
-                // Downgrade: Debit revenue, Credit cash (absolute value)
+                if (request.getSplitTenders() == null || request.getSplitTenders().isEmpty()) {
+                    throw new IllegalArgumentException("Split tenders are required for room downgrades (to specify refund method)");
+                }
                 BigDecimal absDiff = difference.abs();
+                BigDecimal tenderedTotal = BigDecimal.ZERO;
+                for (ChangeRoomRequest.SplitTenderRequest tender : request.getSplitTenders()) {
+                    tenderedTotal = tenderedTotal.add(tender.getAmount());
+                    String paymentAccount = resolvePaymentAccountName(tender.getPaymentMethod(), tender.getSmartPosTerminalId());
+                    journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(BigDecimal.ZERO).creditAmount(tender.getAmount()).build());
+                }
+                if (tenderedTotal.compareTo(absDiff) != 0) {
+                    throw new IllegalArgumentException("Sum of split refunds (" + tenderedTotal + ") does not match downgrade difference (" + absDiff + ")");
+                }
                 journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue - ROOMS").debitAmount(absDiff).creditAmount(BigDecimal.ZERO).build());
-                journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(BigDecimal.ZERO).creditAmount(absDiff).build());
             }
 
             BigDecimal totalDebit = journalEntry.getLines().stream().map(JournalLine::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -325,6 +371,12 @@ public class BookingService {
             throw new IllegalArgumentException("New check-out date must be after current check-out date");
         }
 
+        List<Booking> overlaps = bookingRepo.findOverlappingBookings(booking.getRoomNumber(), booking.getCheckInDate(), request.getNewCheckOutDate());
+        overlaps = overlaps.stream().filter(b -> !b.getId().equals(booking.getId())).toList();
+        if (!overlaps.isEmpty()) {
+            throw new IllegalStateException("Cannot extend: Room is booked by another guest during the extended dates");
+        }
+
         JournalEntry finalJournalEntry = null;
 
         if (request.getAdditionalCost().compareTo(BigDecimal.ZERO) > 0) {
@@ -334,9 +386,19 @@ public class BookingService {
                     .processedBy(staffUser)
                     .build();
 
-            String paymentAccount = resolvePaymentAccountName(request.getPaymentMethod(), request.getSmartPosTerminalId());
+            if (request.getSplitTenders() == null || request.getSplitTenders().isEmpty()) {
+                throw new IllegalArgumentException("Split tenders are required for booking extensions with additional cost");
+            }
+            BigDecimal tenderedTotal = BigDecimal.ZERO;
+            for (ExtendBookingRequest.SplitTenderRequest tender : request.getSplitTenders()) {
+                tenderedTotal = tenderedTotal.add(tender.getAmount());
+                String paymentAccount = resolvePaymentAccountName(tender.getPaymentMethod(), tender.getSmartPosTerminalId());
+                journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(tender.getAmount()).creditAmount(BigDecimal.ZERO).build());
+            }
+            if (tenderedTotal.compareTo(request.getAdditionalCost()) != 0) {
+                throw new IllegalArgumentException("Sum of split tenders (" + tenderedTotal + ") does not match additional cost (" + request.getAdditionalCost() + ")");
+            }
 
-            journalEntry.addLine(JournalLine.builder().accountName(paymentAccount).debitAmount(request.getAdditionalCost()).creditAmount(BigDecimal.ZERO).build());
             journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue - ROOMS").debitAmount(BigDecimal.ZERO).creditAmount(request.getAdditionalCost()).build());
 
             BigDecimal totalDebit = journalEntry.getLines().stream().map(JournalLine::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -496,6 +558,7 @@ public class BookingService {
     private BookingResponse toResponse(Booking booking) {
         return BookingResponse.builder()
                 .id(booking.getId())
+                .guestId(booking.getGuest().getId())
                 .guestFirstName(booking.getGuest().getFirstName())
                 .guestLastName(booking.getGuest().getLastName())
                 .guestEmail(booking.getGuest().getEmail())
@@ -525,5 +588,184 @@ public class BookingService {
                 .processedByUsername(booking.getProcessedBy().getUsername())
                 .priceOverrideReason(booking.getPriceOverrideReason())
                 .build();
+    }
+    @Transactional
+    public void createReservation(BookingRequest request, UUID staffId) {
+        if (!request.getCheckOutDate().isAfter(request.getCheckInDate())) {
+            throw new IllegalArgumentException("Check-out date must be after check-in date");
+        }
+
+        StaffUser staffUser = staffRepo.findById(staffId)
+                .orElseThrow(() -> new IllegalArgumentException("Staff user not found"));
+
+        Room room = roomRepo.findByRoomNumber(request.getRoomNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+
+        List<Booking> overlaps = bookingRepo.findOverlappingBookings(room.getRoomNumber(), request.getCheckInDate(), request.getCheckOutDate());
+        if (!overlaps.isEmpty()) {
+            throw new IllegalStateException("Room is already booked for the selected dates");
+        }
+
+        Guest guest = guestRepo.findFirstByEmailAndFirstNameIgnoreCaseAndLastNameIgnoreCase(
+                    request.getGuestEmail(), request.getGuestFirstName(), request.getGuestLastName())
+                .orElseGet(() -> Guest.builder().email(request.getGuestEmail()).build());
+
+        guest.setFirstName(request.getGuestFirstName());
+        guest.setLastName(request.getGuestLastName());
+        guest.setPhone(request.getGuestPhone());
+
+        // Minimal details for reservation
+        if (request.getTitle() != null) guest.setTitle(request.getTitle());
+        guest = guestRepo.save(guest);
+
+        Booking booking = Booking.builder()
+                .guest(guest)
+                .processedBy(staffUser)
+                .checkInDate(request.getCheckInDate())
+                .checkOutDate(request.getCheckOutDate())
+                .roomNumber(room.getRoomNumber())
+                .roomType(request.getRoomType())
+                .checkInTime(request.getCheckInTime())
+                .totalCost(request.getTotalCost())
+                .status(BookingStatus.RESERVED)
+                .paymentMethod(PaymentMethod.CASH)
+                .build();
+        booking = bookingRepo.save(booking);
+
+        try {
+            java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+            java.util.Map<String, Object> bookingMap = new java.util.HashMap<>();
+            bookingMap.put("id", booking.getId());
+            bookingMap.put("totalCost", booking.getTotalCost());
+            
+            java.util.Map<String, Object> processedByMap = new java.util.HashMap<>();
+            processedByMap.put("username", staffUser.getUsername());
+            bookingMap.put("processedBy", processedByMap);
+            
+            payloadMap.put("booking", bookingMap);
+            
+            String payload = objectMapper.writeValueAsString(payloadMap);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType("BOOKING_CREATED")
+                    .payload(payload)
+                    .status(OutboxStatus.PENDING)
+                    .build();
+            outboxRepo.save(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize outbox event payload", e);
+        }
+        
+        String emailBody = String.format("<h1>Reservation Confirmed</h1><p>Dear %s,</p><p>Your reservation for room %s from %s to %s is confirmed.</p><p>Please note that payment is required upon check-in.</p>",
+                guest.getFirstName(), booking.getRoomNumber(), booking.getCheckInDate(), booking.getCheckOutDate());
+        
+        final String guestEmail = guest.getEmail();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                emailSender.send(guestEmail, "Your Reservation - Feni Hotel", emailBody);
+            }
+        });
+    }
+
+    @Transactional
+    public void checkinReservation(UUID bookingId, BookingRequest request, UUID staffId) {
+        if (request.getSplitTenders() == null || request.getSplitTenders().isEmpty()) {
+            throw new IllegalArgumentException("At least one tender is required for check-in");
+        }
+
+        StaffUser staffUser = staffRepo.findById(staffId)
+                .orElseThrow(() -> new IllegalArgumentException("Staff user not found"));
+
+        Booking booking = bookingRepo.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+                
+        if (booking.getStatus() != BookingStatus.RESERVED) {
+            throw new IllegalStateException("Only RESERVED bookings can be checked in via this method");
+        }
+        
+        Room room = roomRepo.findByRoomNumber(booking.getRoomNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+                
+        if (room.getStatus() != RoomStatus.AVAILABLE) {
+            throw new IllegalStateException("Room is not currently available for check-in");
+        }
+
+        Guest guest = booking.getGuest();
+        if (request.getOccupation() != null) guest.setOccupation(request.getOccupation());
+        if (request.getNextOfKinPhone() != null) guest.setNextOfKinPhone(request.getNextOfKinPhone());
+        if (request.getAddress() != null) guest.setAddress(request.getAddress());
+        if (request.getLga() != null) guest.setLga(request.getLga());
+        if (request.getNationality() != null) guest.setNationality(request.getNationality());
+        if (request.getStateOfOrigin() != null) guest.setStateOfOrigin(request.getStateOfOrigin());
+        if (request.getPassportNo() != null) guest.setPassportNo(request.getPassportNo());
+        if (request.getNin() != null) guest.setNin(request.getNin());
+        if (request.getPurposeOfVisit() != null) guest.setPurposeOfVisit(request.getPurposeOfVisit());
+        if (request.getArrivingFrom() != null) guest.setArrivingFrom(request.getArrivingFrom());
+        if (request.getGoingTo() != null) guest.setGoingTo(request.getGoingTo());
+        guestRepo.save(guest);
+
+        booking.setStatus(BookingStatus.CHECKED_IN);
+        if (request.getSplitTenders() != null && !request.getSplitTenders().isEmpty()) {
+            booking.setPaymentMethod(request.getSplitTenders().get(0).getPaymentMethod());
+        }
+        booking = bookingRepo.save(booking);
+
+        room.setStatus(RoomStatus.OCCUPIED);
+        roomRepo.save(room);
+
+        JournalEntry journalEntry = JournalEntry.builder()
+                .entryType(EntryType.BOOKING_PAYMENT)
+                .referenceId(booking.getId())
+                .processedBy(staffUser)
+                .build();
+
+        BigDecimal tenderedTotal = BigDecimal.ZERO;
+        for (BookingRequest.SplitTenderRequest tender : request.getSplitTenders()) {
+            tenderedTotal = tenderedTotal.add(tender.getAmount());
+            String debitAccount = resolvePaymentAccountName(tender.getPaymentMethod(), tender.getSmartPosTerminalId());
+            journalEntry.addLine(JournalLine.builder().accountName(debitAccount).debitAmount(tender.getAmount()).creditAmount(BigDecimal.ZERO).build());
+        }
+
+        if (tenderedTotal.compareTo(booking.getTotalCost()) != 0) {
+            throw new IllegalArgumentException("Sum of split tenders (" + tenderedTotal + ") does not match total cost (" + booking.getTotalCost() + ")");
+        }
+
+        journalEntry.addLine(JournalLine.builder().accountName("Sales Revenue - ROOMS").debitAmount(BigDecimal.ZERO).creditAmount(booking.getTotalCost()).build());
+
+        BigDecimal totalDebit = journalEntry.getLines().stream().map(JournalLine::getDebitAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCredit = journalEntry.getLines().stream().map(JournalLine::getCreditAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        if (totalDebit.compareTo(totalCredit) != 0) {
+            throw new UnbalancedJournalException("Journal entry is unbalanced.");
+        }
+        journalRepo.save(journalEntry);
+
+        try {
+            java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+            java.util.Map<String, Object> bookingMap = new java.util.HashMap<>();
+            bookingMap.put("id", booking.getId());
+            bookingMap.put("status", booking.getStatus().name());
+            
+            payloadMap.put("booking", bookingMap);
+            payloadMap.put("journalEntry", journalEntry);
+            
+            String payload = objectMapper.writeValueAsString(payloadMap);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .eventType("BOOKING_UPDATED")
+                    .payload(payload)
+                    .status(OutboxStatus.PENDING)
+                    .build();
+            outboxRepo.save(event);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize outbox event payload", e);
+        }
+
+        if (request.getPrinterIp() != null && !request.getPrinterIp().isBlank()) {
+            String receipt = String.format("============================\n         FENI HOTEL         \n No. 1, Keana Link Road, Jos\n    Tel: +234 123 456 7890  \n============================\n      BOOKING RECEIPT       \n============================\n\nRoom: %s\nCheck-in: %s\nCheck-out: %s\nTotal: ₦%s\n",
+                    booking.getRoomNumber(), booking.getCheckInDate(), booking.getCheckOutDate(), booking.getTotalCost());
+            thermalPrinterService.printReceiptAsync(receipt, request.getPrinterIp());
+        }
     }
 }

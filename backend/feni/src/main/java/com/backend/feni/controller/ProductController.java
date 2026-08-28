@@ -32,6 +32,7 @@ public class ProductController {
     private final ObjectMapper objectMapper;
 
     @GetMapping
+    @Transactional(readOnly = true)
     public List<ProductResponse> getAllProducts() {
         return productRepository.findAll().stream()
                 .map(this::mapToResponse)
@@ -48,7 +49,6 @@ public class ProductController {
                 .revenueCenter(request.getRevenueCenter())
                 .manufacturerBarcode(request.getManufacturerBarcode())
                 .internalSku(request.getInternalSku())
-                .stockQty(request.getStockQty())
                 .lowStockThreshold(request.getLowStockThreshold())
                 .price(request.getPrice())
                 .unitCost(request.getUnitCost())
@@ -78,7 +78,6 @@ public class ProductController {
         product.setRevenueCenter(request.getRevenueCenter());
         product.setManufacturerBarcode(request.getManufacturerBarcode());
         product.setInternalSku(request.getInternalSku());
-        product.setStockQty(request.getStockQty());
         product.setLowStockThreshold(request.getLowStockThreshold());
         product.setPrice(request.getPrice());
         product.setUnitCost(request.getUnitCost());
@@ -123,7 +122,9 @@ public class ProductController {
                 .revenueCenter(product.getRevenueCenter())
                 .manufacturerBarcode(product.getManufacturerBarcode())
                 .internalSku(product.getInternalSku())
-                .stockQty(product.getStockQty())
+                .stockQty(product.getInventoryStocks() != null ? product.getInventoryStocks().stream().mapToInt(com.backend.feni.entity.InventoryStock::getQuantity).sum() : 0)
+                .inventoryStocks(product.getInventoryStocks() != null ? product.getInventoryStocks().stream().map(s -> com.backend.feni.dto.response.InventoryStockResponse.builder().id(s.getId()).locationId(s.getLocation().getId()).locationName(s.getLocation().getName()).quantity(s.getQuantity()).build()).collect(Collectors.toList()) : null)
+                .imageUrl(product.getImageUrl())
                 .lowStockThreshold(product.getLowStockThreshold())
                 .price(product.getPrice())
                 .unitCost(product.getUnitCost())

@@ -17,11 +17,17 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryIntakeService inventoryIntakeService;
+    private final com.backend.feni.repository.InventoryLocationRepository locationRepository;
 
     @PostMapping("/intake")
     @ResponseStatus(HttpStatus.CREATED)
     public void receiveShipment(@Valid @RequestBody InventoryIntakeRequest request, @AuthenticationPrincipal Jwt jwt) {
         UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
         inventoryIntakeService.receiveShipment(request, staffId);
+    }
+
+    @GetMapping("/locations")
+    public java.util.List<com.backend.feni.entity.InventoryLocation> getLocations() {
+        return locationRepository.findAll();
     }
 }

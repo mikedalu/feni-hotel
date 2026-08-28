@@ -68,4 +68,17 @@ public class BookingController {
         UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
         bookingService.refundDeposit(id, request, staffId);
     }
+
+    @PostMapping("/reserve")
+    @ResponseStatus(HttpStatus.CREATED)
+    public void createReservation(@Valid @RequestBody BookingRequest request, @AuthenticationPrincipal Jwt jwt) {
+        UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
+        bookingService.createReservation(request, staffId);
+    }
+
+    @PostMapping("/{id}/checkin")
+    public void checkinReservation(@PathVariable UUID id, @Valid @RequestBody BookingRequest request, @AuthenticationPrincipal Jwt jwt) {
+        UUID staffId = UUID.fromString(jwt.getClaimAsString("userId"));
+        bookingService.checkinReservation(id, request, staffId);
+    }
 }

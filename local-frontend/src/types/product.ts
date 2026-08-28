@@ -17,4 +17,6 @@ export interface Product {
   conversionRatio?: number;
   taxBracketIds?: string[];
   taxBrackets?: { id: string; name: string; rate: number; isActive: boolean }[];
+  imageUrl?: string;
+  inventoryStocks?: { id: string; quantity: number; locationId: string; locationName: string; }[];
 }

@@ -19,13 +19,16 @@ interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   total: number;
-  onConfirm: (splitTenders: Omit<SplitTender, 'id'>[], printerIp: string) => Promise<void>;
+  onConfirm: (splitTenders: Omit<SplitTender, 'id'>[], printerIp: string, locationId: string) => Promise<void>;
   printerIp: string;
   setPrinterIp: (ip: string) => void;
+  locationId: string;
+  setLocationId: (id: string) => void;
   isProcessing: boolean;
+  hasRawGoods: boolean;
 }
 
-export default function CheckoutModal({ isOpen, onClose, total, onConfirm, printerIp, setPrinterIp, isProcessing }: CheckoutModalProps) {
+export default function CheckoutModal({ isOpen, onClose, total, onConfirm, printerIp, setPrinterIp, locationId, setLocationId, isProcessing, hasRawGoods }: CheckoutModalProps) {
   const [tenders, setTenders] = useState<SplitTender[]>([
     { id: '1', paymentMethod: 'CASH', amount: total }
   ]);
@@ -35,6 +38,16 @@ export default function CheckoutModal({ isOpen, onClose, total, onConfirm, print
     queryFn: async () => {
       const res = await apiClient('/api/proxy/admin/smart-pos');
       if (!res.ok) throw new Error('Failed to fetch terminals');
+      return res.json();
+    },
+    enabled: isOpen
+  });
+
+  const { data: locations = [] } = useQuery<any[]>({
+    queryKey: ['inventoryLocations'],
+    queryFn: async () => {
+      const res = await apiClient('/api/proxy/inventory/locations');
+      if (!res.ok) throw new Error('Failed to fetch locations');
       return res.json();
     },
     enabled: isOpen
@@ -80,8 +93,8 @@ export default function CheckoutModal({ isOpen, onClose, total, onConfirm, print
   };
 
   const handleSubmit = () => {
-    if (!isBalanced) return;
-    onConfirm(tenders, printerIp);
+    if (!isBalanced || (hasRawGoods && !locationId)) return;
+    onConfirm(tenders, printerIp, locationId);
   };
 
   return (
@@ -167,15 +180,32 @@ export default function CheckoutModal({ isOpen, onClose, total, onConfirm, print
             ))}
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700 block">Printer IP (Optional)</label>
-            <input 
-              type="text" 
-              placeholder="192.168.1.100" 
-              value={printerIp}
-              onChange={(e) => setPrinterIp(e.target.value)}
-              className="w-full border rounded-lg px-4 py-2 focus:border-blue-500 outline-none"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-700 block">
+                Stock Location {hasRawGoods && <span className="text-red-500">*</span>}
+              </label>
+              <select 
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+                className={`w-full border rounded-lg px-4 py-2 outline-none ${hasRawGoods && !locationId ? 'border-red-300 bg-red-50' : 'focus:border-blue-500'}`}
+              >
+                <option value="">-- Select Location {hasRawGoods ? '' : '(Optional)'} --</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name} ({loc.type})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-700 block">Printer IP (Optional)</label>
+              <input 
+                type="text" 
+                placeholder="192.168.1.100" 
+                value={printerIp}
+                onChange={(e) => setPrinterIp(e.target.value)}
+                className="w-full border rounded-lg px-4 py-2 focus:border-blue-500 outline-none"
+              />
+            </div>
           </div>
         </div>
 
@@ -188,10 +218,10 @@ export default function CheckoutModal({ isOpen, onClose, total, onConfirm, print
           
           <button
             onClick={handleSubmit}
-            disabled={!isBalanced || isProcessing}
+            disabled={!isBalanced || isProcessing || (hasRawGoods && !locationId)}
             className={`
               w-full py-4 rounded-xl font-bold text-lg text-white transition-all shadow-md
-              ${!isBalanced || isProcessing
+              ${!isBalanced || isProcessing || (hasRawGoods && !locationId)
                 ? "bg-gray-400 cursor-not-allowed shadow-none"
                 : "bg-green-600 hover:bg-green-700 hover:-translate-y-1 active:translate-y-0"
               }

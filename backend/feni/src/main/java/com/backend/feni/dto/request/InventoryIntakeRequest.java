@@ -12,4 +12,7 @@ public class InventoryIntakeRequest {
 
     // Optional printer IP to print internal SKU labels to
     private String printerIp;
+
+    @jakarta.validation.constraints.NotNull(message = "Location is required for intake")
+    private java.util.UUID locationId;
 }

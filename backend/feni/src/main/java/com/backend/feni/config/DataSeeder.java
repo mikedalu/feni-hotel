@@ -36,6 +36,8 @@ public class DataSeeder implements CommandLineRunner {
     private final ProductRepository productRepo;
     private final RoomTypeRepository roomTypeRepo;
     private final OutboxEventRepository outboxEventRepo;
+    private final com.backend.feni.repository.InventoryLocationRepository locationRepo;
+    private final com.backend.feni.repository.InventoryStockRepository stockRepo;
     private final ObjectMapper objectMapper;
     private final PasswordEncoder passwordEncoder;
 
@@ -55,6 +57,7 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
         seedFacility();
         seedAdmin();
+        seedLocations();
         seedProducts();
         seedRoomTypes();
     }
@@ -120,25 +123,46 @@ public class DataSeeder implements CommandLineRunner {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    private void seedLocations() {
+        if (locationRepo.count() > 0) {
+            return;
+        }
+        locationRepo.save(
+            com.backend.feni.entity.InventoryLocation.builder().name("Main Store").type(com.backend.feni.entity.enums.LocationType.WAREHOUSE).build()
+        );
+        locationRepo.save(
+            com.backend.feni.entity.InventoryLocation.builder().name("Bar").type(com.backend.feni.entity.enums.LocationType.BAR).build()
+        );
+        log.info("Seeded default inventory locations.");
+    }
+
     private void seedProducts() {
         if (productRepo.count() > 0) {
             return;
         }
 
-        seedProductAndSync(Product.builder().name("Starbeer Bottle").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B001").price(new BigDecimal("1500")).unitCost(new BigDecimal("1000")).stockQty(45).build());
-        seedProductAndSync(Product.builder().name("Guinness Stout").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B002").price(new BigDecimal("2000")).unitCost(new BigDecimal("1200")).stockQty(32).build());
-        seedProductAndSync(Product.builder().name("Jollof Rice & Chicken").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K001").price(new BigDecimal("4500")).unitCost(new BigDecimal("2500")).build());
-        seedProductAndSync(Product.builder().name("Egusi Soup & Pounded Yam").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K002").price(new BigDecimal("5000")).unitCost(new BigDecimal("3000")).build());
-        seedProductAndSync(Product.builder().name("Plantain (Extra)").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K003").price(new BigDecimal("1000")).unitCost(new BigDecimal("400")).build());
-        seedProductAndSync(Product.builder().name("Water (Bottle)").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B003").price(new BigDecimal("500")).unitCost(new BigDecimal("200")).stockQty(105).build());
-        seedProductAndSync(Product.builder().name("Red Bull").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B004").price(new BigDecimal("2500")).unitCost(new BigDecimal("1500")).stockQty(5).build());
-        seedProductAndSync(Product.builder().name("Grilled Fish").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K004").price(new BigDecimal("8000")).unitCost(new BigDecimal("5000")).build());
+        com.backend.feni.entity.InventoryLocation mainStore = locationRepo.findAll().stream()
+                .filter(l -> l.getName().equals("Main Store")).findFirst().orElse(null);
+        com.backend.feni.entity.InventoryLocation bar = locationRepo.findAll().stream()
+                .filter(l -> l.getName().equals("Bar")).findFirst().orElse(null);
+
+        seedProductAndSync(Product.builder().name("Starbeer Bottle").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B001").price(new BigDecimal("1500")).unitCost(new BigDecimal("1000")).build(), bar, 45);
+        seedProductAndSync(Product.builder().name("Guinness Stout").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B002").price(new BigDecimal("2000")).unitCost(new BigDecimal("1200")).build(), bar, 32);
+        seedProductAndSync(Product.builder().name("Jollof Rice & Chicken").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K001").price(new BigDecimal("4500")).unitCost(new BigDecimal("2500")).build(), null, 0);
+        seedProductAndSync(Product.builder().name("Egusi Soup & Pounded Yam").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K002").price(new BigDecimal("5000")).unitCost(new BigDecimal("3000")).build(), null, 0);
+        seedProductAndSync(Product.builder().name("Plantain (Extra)").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K003").price(new BigDecimal("1000")).unitCost(new BigDecimal("400")).build(), null, 0);
+        seedProductAndSync(Product.builder().name("Water (Bottle)").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B003").price(new BigDecimal("500")).unitCost(new BigDecimal("200")).build(), bar, 105);
+        seedProductAndSync(Product.builder().name("Red Bull").type(ProductType.RAW_GOOD).revenueCenter(RevenueCenter.BAR).internalSku("B004").price(new BigDecimal("2500")).unitCost(new BigDecimal("1500")).build(), bar, 5);
+        seedProductAndSync(Product.builder().name("Grilled Fish").type(ProductType.PREPARED_DISH).revenueCenter(RevenueCenter.KITCHEN).internalSku("K004").price(new BigDecimal("8000")).unitCost(new BigDecimal("5000")).build(), null, 0);
 
         log.info("Seeded mock products with cloud sync outbox events.");
     }
 
-    private void seedProductAndSync(Product product) {
+    private void seedProductAndSync(Product product, com.backend.feni.entity.InventoryLocation location, int qty) {
         Product saved = productRepo.save(product);
+        if (location != null && qty > 0) {
+            stockRepo.save(com.backend.feni.entity.InventoryStock.builder().product(saved).location(location).quantity(qty).build());
+        }
         try {
             java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
             payloadMap.put("product", saved);

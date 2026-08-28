@@ -165,14 +165,14 @@ public class ReportService {
 
                 for (Product p : products) {
                     if (p.getType() == com.backend.feni.entity.enums.ProductType.RAW_GOOD) {
+                        int totalQty = p.getInventoryStocks() != null ? p.getInventoryStocks().stream().mapToInt(com.backend.feni.entity.InventoryStock::getQuantity).sum() : 0;
                         String status = "OK";
-                        if (p.getStockQty() != null && p.getLowStockThreshold() != null
-                                && p.getStockQty() <= p.getLowStockThreshold()) {
+                        if (p.getLowStockThreshold() != null
+                                && totalQty <= p.getLowStockThreshold()) {
                             status = "LOW STOCK";
                         }
 
-                        BigDecimal qty = p.getStockQty() != null ? BigDecimal.valueOf(p.getStockQty())
-                                : BigDecimal.ZERO;
+                        BigDecimal qty = BigDecimal.valueOf(totalQty);
                         BigDecimal totalValue = p.getUnitCost().multiply(qty);
                         totalInventoryValue = totalInventoryValue.add(totalValue);
 
@@ -180,7 +180,7 @@ public class ReportService {
                                 String.valueOf(invSn++),
                                 p.getInternalSku(),
                                 p.getName(),
-                                String.valueOf(p.getStockQty()),
+                                String.valueOf(totalQty),
                                 "₦" + nf.format(p.getUnitCost()),
                                 "₦" + nf.format(totalValue),
                                 status
@@ -483,12 +483,13 @@ public class ReportService {
         for (Product p : products) {
             if (p.getType() == com.backend.feni.entity.enums.ProductType.RAW_GOOD) {
                 totalInventoryItems++;
-                BigDecimal qty = p.getStockQty() != null ? BigDecimal.valueOf(p.getStockQty()) : BigDecimal.ZERO;
+                int totalQty = p.getInventoryStocks() != null ? p.getInventoryStocks().stream().mapToInt(com.backend.feni.entity.InventoryStock::getQuantity).sum() : 0;
+                BigDecimal qty = BigDecimal.valueOf(totalQty);
                 if (p.getUnitCost() != null) {
                     inventoryValue = inventoryValue.add(p.getUnitCost().multiply(qty));
                 }
                 
-                if (p.getStockQty() != null && p.getLowStockThreshold() != null && p.getStockQty() <= p.getLowStockThreshold()) {
+                if (p.getLowStockThreshold() != null && totalQty <= p.getLowStockThreshold()) {
                     lowStockAlerts++;
                 }
             }

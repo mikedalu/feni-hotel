@@ -142,6 +142,9 @@ export default function LedgerPage() {
             <option value="Inventory Asset">Inventory Asset</option>
             <option value="Cost of Goods Sold">Cost of Goods Sold</option>
             <option value="Cash">Cash</option>
+            <option value="Card Payments">Card Payments</option>
+            <option value="Bank Transfers">Bank Transfers</option>
+            <option value="Customer Deposits">Customer Deposits</option>
             <option value="Accounts Payable">Accounts Payable</option>
           </select>
         </div>

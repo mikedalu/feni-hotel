@@ -10,14 +10,19 @@ import { PlusIcon, QrCodeIcon, DocumentTextIcon } from '@heroicons/react/24/outl
 import ChangeRoomModal from '@/components/reception/ChangeRoomModal';
 import ExtendBookingModal from '@/components/reception/ExtendBookingModal';
 import ManageDepositsModal from '@/components/reception/ManageDepositsModal';
+import CheckInReservationModal from '@/components/reception/CheckInReservationModal';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { DataTable } from '@/components/ui/DataTable';
 import { DataTableColumnHeader } from '@/components/ui/DataTableColumnHeader';
+import toast from 'react-hot-toast';
 
 export default function ReceptionDashboardPage() {
   const queryClient = useQueryClient();
   const [changingRoomFor, setChangingRoomFor] = React.useState<BookingResponse | null>(null);
   const [extendingBookingFor, setExtendingBookingFor] = React.useState<BookingResponse | null>(null);
   const [managingDepositsFor, setManagingDepositsFor] = React.useState<BookingResponse | null>(null);
+  const [checkingOutFor, setCheckingOutFor] = React.useState<BookingResponse | null>(null);
+  const [checkingInReservationFor, setCheckingInReservationFor] = React.useState<BookingResponse | null>(null);
 
   const { data: bookings = [], isLoading, error } = useQuery<BookingResponse[]>({
     queryKey: ['bookings'],
@@ -33,10 +38,18 @@ export default function ReceptionDashboardPage() {
       const res = await apiClient(`/api/proxy/bookings/${bookingId}/checkout`, {
         method: 'POST',
       });
-      if (!res.ok) throw new Error('Failed to checkout booking');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || 'Failed to checkout booking');
+      }
     },
     onSuccess: () => {
+      toast.success('Booking checked out successfully');
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setCheckingOutFor(null);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
     },
   });
 
@@ -75,6 +88,26 @@ export default function ReceptionDashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       setExtendingBookingFor(null);
+    },
+  });
+
+  const checkInReservationMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (!checkingInReservationFor) return;
+      const res = await apiClient(`/api/proxy/bookings/${checkingInReservationFor.id}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || 'Failed to check in reservation');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setCheckingInReservationFor(null);
+      toast.success('Reservation checked in successfully');
     },
   });
 
@@ -191,6 +224,14 @@ export default function ReceptionDashboardPage() {
             </button>
             
             <Link
+              href="/reception/reservation"
+              className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-xl font-semibold shadow hover:bg-purple-700 transition-colors"
+            >
+              <PlusIcon className="h-5 w-5" />
+              Advance Reservation
+            </Link>
+            
+            <Link
               href="/reception/manual-booking"
               className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-semibold shadow hover:bg-indigo-700 transition-colors"
             >
@@ -273,6 +314,14 @@ export default function ReceptionDashboardPage() {
                   const booking = row.original;
                   return (
                     <div className="flex justify-end gap-3">
+                      {booking.status === 'RESERVED' && (
+                        <button
+                          onClick={() => setCheckingInReservationFor(booking)}
+                          className="text-green-600 hover:text-green-900 font-medium text-sm"
+                        >
+                          Check In
+                        </button>
+                      )}
                       {(booking.status === 'CHECKED_IN' || booking.status === 'OVERDUE') && (
                         <>
                           <button
@@ -287,20 +336,15 @@ export default function ReceptionDashboardPage() {
                           >
                             Extend
                           </button>
-                          <button
+                          {/* <button
                             onClick={() => setManagingDepositsFor(booking)}
-                            className="text-teal-600 hover:text-teal-900 font-medium text-sm"
+                            className="text-indigo-600 hover:text-indigo-900 font-medium text-sm"
                           >
                             Deposits
-                          </button>
+                          </button> */}
                           <button
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to checkout this booking?')) {
-                                checkoutMutation.mutate(booking.id);
-                              }
-                            }}
-                            disabled={checkoutMutation.isPending}
-                            className="text-indigo-600 hover:text-indigo-900 font-medium text-sm disabled:opacity-50"
+                            onClick={() => setCheckingOutFor(booking)}
+                            className="text-indigo-600 hover:text-indigo-900 font-medium text-sm"
                           >
                             Checkout
                           </button>
@@ -313,14 +357,12 @@ export default function ReceptionDashboardPage() {
                       >
                         Download Invoice
                       </button>
-                      {booking.idScanUrl && (
-                        <a
-                          href={`/reception/bookings/${booking.id}`}
-                          className="text-teal-600 hover:text-teal-900 font-medium text-sm ml-2"
-                        >
-                          View Detail
-                        </a>
-                      )}
+                      <a
+                        href={`/reception/bookings/${booking.id}`}
+                        className="text-teal-600 hover:text-teal-900 font-medium text-sm ml-2"
+                      >
+                        View Detail
+                      </a>
                     </div>
                   )
                 }
@@ -367,6 +409,31 @@ export default function ReceptionDashboardPage() {
             isSubmitting={addDepositMutation.isPending || refundDepositMutation.isPending}
           />
         )}
+
+        {checkingInReservationFor && (
+          <CheckInReservationModal
+            booking={checkingInReservationFor}
+            onClose={() => setCheckingInReservationFor(null)}
+            onSubmit={async (data) => {
+              await checkInReservationMutation.mutateAsync(data);
+            }}
+            isSubmitting={checkInReservationMutation.isPending}
+          />
+        )}
+
+        <ConfirmModal
+          isOpen={!!checkingOutFor}
+          title="Confirm Checkout"
+          message={`Are you sure you want to checkout ${checkingOutFor?.guestFirstName} ${checkingOutFor?.guestLastName} from Room ${checkingOutFor?.roomNumber}?`}
+          confirmText="Checkout"
+          onConfirm={() => {
+            if (checkingOutFor) {
+              checkoutMutation.mutate(checkingOutFor.id);
+            }
+          }}
+          onCancel={() => setCheckingOutFor(null)}
+          isProcessing={checkoutMutation.isPending}
+        />
 
       </div>
     </ProtectedRoute>

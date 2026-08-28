@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/apiClient';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { BookingRequest } from '@/types/booking';
 import { RoomResponse } from '@/types/room';
+import { SplitTenderInput } from '@/components/ui/SplitTenderInput';
 
 export default function ManualBookingPage() {
   const router = useRouter();
@@ -74,10 +75,9 @@ export default function ManualBookingPage() {
       roomNumber: '',
       roomType: 'Standard',
       checkInTime: '14:00',
-      paymentMethod: 'CASH',
+      splitTenders: [{ id: '1', paymentMethod: 'CASH', amount: 0 }],
       totalCost: 0,
       printerIp,
-      smartPosTerminalId: '',
     };
   });
 
@@ -116,7 +116,21 @@ export default function ManualBookingPage() {
           const autoCost = room.currentPrice * nights;
           setSystemCalculatedCost(autoCost);
           nextState.totalCost = autoCost;
+          if (nextState.splitTenders.length === 1) {
+            nextState.splitTenders = [{ ...nextState.splitTenders[0], amount: autoCost }];
+          }
         }
+      }
+      return nextState;
+    });
+  };
+
+  const handleTotalCostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value) || 0;
+    setFormData(prev => {
+      const nextState = { ...prev, totalCost: val };
+      if (nextState.splitTenders.length === 1) {
+        nextState.splitTenders = [{ ...nextState.splitTenders[0], amount: val }];
       }
       return nextState;
     });
@@ -139,9 +153,21 @@ export default function ManualBookingPage() {
     setError(null);
     try {
       const payload = { ...formData };
-      if (payload.paymentMethod === 'CASH') {
-        payload.smartPosTerminalId = undefined;
+      
+      const tenderedTotal = payload.splitTenders.reduce((sum, t) => sum + (t.amount || 0), 0);
+      if (Math.abs(tenderedTotal - payload.totalCost) > 0.01) {
+        setError(`Sum of split tenders (₦${tenderedTotal.toFixed(2)}) does not match total cost (₦${payload.totalCost.toFixed(2)})`);
+        setLoading(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       }
+
+      payload.splitTenders = payload.splitTenders.map(({ id, ...rest }) => {
+         if (rest.paymentMethod === 'CASH') {
+            return { ...rest, smartPosTerminalId: undefined };
+         }
+         return rest;
+      }) as any;
       
       const res = await apiClient('/api/proxy/bookings', {
         method: 'POST',
@@ -423,36 +449,15 @@ export default function ManualBookingPage() {
               <div className="p-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">Payment</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Payment Method *</label>
-                    <select
-                      name="paymentMethod"
-                      required={step === 2}
-                      value={formData.paymentMethod}
-                      onChange={handleChange}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white"
-                    >
-                      <option value="CASH">Cash</option>
-                      <option value="POS">Card Terminal (POS)</option>
-                      <option value="TRANSFER">Bank Transfer</option>
-                    </select>
+                  <div className="md:col-span-2">
+                    <SplitTenderInput 
+                      tenders={formData.splitTenders as any} 
+                      setTenders={(tenders) => setFormData(prev => ({ ...prev, splitTenders: tenders }))} 
+                      total={formData.totalCost} 
+                      activeTerminals={activeTerminals} 
+                    />
                   </div>
-                  {(formData.paymentMethod === 'POS' || formData.paymentMethod === 'TRANSFER') && activeTerminals.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Smart POS Terminal</label>
-                      <select 
-                        name="smartPosTerminalId"
-                        value={formData.smartPosTerminalId || ''} 
-                        onChange={handleChange} 
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white"
-                      >
-                        <option value="">-- Select Terminal (Optional) --</option>
-                        {activeTerminals.map((term: { id: string; name: string; isActive: boolean }) => (
-                          <option key={term.id} value={term.id}>{term.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Total Cost (₦) *</label>
                     <input
@@ -462,7 +467,7 @@ export default function ManualBookingPage() {
                       min="0"
                       step="0.01"
                       value={formData.totalCost}
-                      onChange={handleChange}
+                      onChange={handleTotalCostChange}
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-bold text-indigo-700"
                     />
                     {systemCalculatedCost > 0 && (

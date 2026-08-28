@@ -7,6 +7,9 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 
 @Data
 public class ChangeRoomRequest {
@@ -21,8 +24,18 @@ public class ChangeRoomRequest {
     @DecimalMin(value = "0.0", inclusive = true, message = "newTotalCost must be positive")
     private BigDecimal newTotalCost;
 
-    @NotNull(message = "paymentMethod is required")
-    private PaymentMethod paymentMethod;
+    @Valid
+    private List<SplitTenderRequest> splitTenders; // Optional, only if newTotalCost > oldCost
 
-    private java.util.UUID smartPosTerminalId;
+    @Data
+    public static class SplitTenderRequest {
+        @NotNull
+        private PaymentMethod paymentMethod;
+
+        @NotNull
+        @jakarta.validation.constraints.DecimalMin(value = "0.01", message = "Tender amount must be greater than zero")
+        private BigDecimal amount;
+
+        private java.util.UUID smartPosTerminalId;
+    }
 }

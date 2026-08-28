@@ -15,6 +15,7 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   
   // Form State
   const [formData, setFormData] = useState<Partial<Product>>({
@@ -91,6 +92,7 @@ export default function ProductsPage() {
         taxBracketIds: [],
       });
     }
+    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -108,6 +110,19 @@ export default function ProductsPage() {
       });
       
       if (!res.ok) throw new Error('Failed to save product');
+      const savedProduct = await res.json();
+
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('file', imageFile);
+        const imageRes = await apiClient(`/api/proxy/products/${savedProduct.id}/image`, {
+          method: 'POST',
+          body: formData
+        });
+        if (!imageRes.ok) {
+           toast.error('Product saved, but failed to upload image');
+        }
+      }
       
       setIsModalOpen(false);
       fetchProducts();
@@ -148,6 +163,18 @@ export default function ProductsPage() {
             {
               accessorKey: 'name',
               header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+              cell: ({ row }) => (
+                <div className="flex items-center space-x-3">
+                  {row.original.imageUrl ? (
+                    <img src={(row.original.imageUrl.startsWith('/api/') || row.original.imageUrl.startsWith('/uploads/')) ? row.original.imageUrl : `/api/proxy${row.original.imageUrl}`} alt={row.original.name} className="w-10 h-10 object-cover rounded shadow-sm" />
+                  ) : (
+                    <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center shadow-sm">
+                      <span className="text-gray-400 text-xs">No img</span>
+                    </div>
+                  )}
+                  <span className="font-medium">{row.original.name}</span>
+                </div>
+              ),
               meta: { className: 'font-medium' }
             },
             {
@@ -171,9 +198,18 @@ export default function ProductsPage() {
               header: ({ column }) => <DataTableColumnHeader column={column} title="Stock (Threshold)" />,
               cell: ({ row }) => (
                 row.getValue('type') === 'RAW_GOOD' ? (
-                  <span className={`font-semibold ${(row.original.stockQty ?? 0) <= (row.original.lowStockThreshold ?? 0) ? 'text-red-600' : 'text-gray-900'}`}>
-                    {row.original.stockQty} <span className="text-gray-400 font-normal text-xs">({row.original.lowStockThreshold})</span>
-                  </span>
+                  <div className="flex flex-col">
+                    <span className={`font-semibold ${(row.original.stockQty ?? 0) <= (row.original.lowStockThreshold ?? 0) ? 'text-red-600' : 'text-gray-900'}`}>
+                      {row.original.stockQty} <span className="text-gray-400 font-normal text-xs">({row.original.lowStockThreshold})</span>
+                    </span>
+                    {row.original.inventoryStocks && row.original.inventoryStocks.length > 0 && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {row.original.inventoryStocks.map(stock => (
+                          <div key={stock.id}>{stock.locationName}: {stock.quantity}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <span className="text-gray-400 text-sm italic">N/A</span>
                 )
@@ -243,6 +279,11 @@ export default function ProductsPage() {
                 <input type="text" value={formData.manufacturerBarcode || ''} onChange={e => setFormData({...formData, manufacturerBarcode: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono" />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                <input type="file" accept="image/*" onChange={e => e.target.files && setImageFile(e.target.files[0])} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Price (Selling)</label>
@@ -256,19 +297,25 @@ export default function ProductsPage() {
 
               {formData.type === 'RAW_GOOD' && (
                 <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 space-y-4">
-                  <h3 className="text-sm font-semibold text-blue-900 mb-2">Unit of Measure (UoM)</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="mb-2">
+                    <h3 className="text-sm font-semibold text-blue-900">Unit of Measure (UoM)</h3>
+                    <p className="text-xs text-blue-700 mt-1">This helps the system convert large deliveries into individual items for sale.</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Base Unit <span className="text-gray-400 text-xs font-normal" title="The single unit you sell (e.g. Bottle)">ⓘ</span></label>
-                      <input type="text" placeholder="e.g. Bottle, Can" value={formData.baseUnit || ''} onChange={e => setFormData({...formData, baseUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Base Unit</label>
+                      <input type="text" placeholder="e.g. Bottle, Can, Shot" value={formData.baseUnit || ''} onChange={e => setFormData({...formData, baseUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                      <p className="text-xs text-gray-500 mt-1">The smallest unit you sell to a customer.</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bulk Unit <span className="text-gray-400 text-xs font-normal" title="The larger unit you receive from suppliers (e.g. Carton)">ⓘ</span></label>
-                      <input type="text" placeholder="e.g. Carton, Crate" value={formData.bulkUnit || ''} onChange={e => setFormData({...formData, bulkUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Bulk Unit</label>
+                      <input type="text" placeholder="e.g. Carton, Crate, Pack" value={formData.bulkUnit || ''} onChange={e => setFormData({...formData, bulkUnit: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                      <p className="text-xs text-gray-500 mt-1">The larger unit you buy from suppliers.</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Conversion Ratio <span className="text-gray-400 text-xs font-normal" title="How many Base Units are in 1 Bulk Unit? (e.g. 24 Bottles in 1 Carton)">ⓘ</span></label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Conversion Ratio</label>
                       <input type="number" min="1" value={formData.conversionRatio || 1} onChange={e => setFormData({...formData, conversionRatio: parseInt(e.target.value) || 1})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                      <p className="text-xs text-gray-500 mt-1">How many base units are in 1 bulk unit?</p>
                     </div>
                   </div>
                 </div>

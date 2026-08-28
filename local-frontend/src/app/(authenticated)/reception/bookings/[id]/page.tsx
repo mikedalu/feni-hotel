@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { BookingResponse } from "@/types/booking";
 import { PrinterIcon, ArrowLeftIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import { apiClient } from "@/lib/apiClient";
 
 export default function BookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -15,7 +16,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     const fetchBooking = async () => {
       try {
-        const res = await fetch(`/api/proxy/bookings/${id}`);
+        const res = await apiClient(`/api/proxy/bookings/${id}`);
         if (!res.ok) throw new Error("Failed to load booking details");
         const data = await res.json();
         setBooking(data);

@@ -1,3 +1,10 @@
+export interface SplitTenderRequest {
+  id?: string;
+  paymentMethod: string;
+  amount: number;
+  smartPosTerminalId?: string;
+}
+
 export interface BookingResponse {
   id: string;
   guestFirstName: string;
@@ -42,7 +49,7 @@ export interface BookingRequest {
   roomType: string;
   checkInTime: string;
 
-  paymentMethod: string;
+  splitTenders: SplitTenderRequest[];
   totalCost: number;
 
   title?: string;
@@ -60,20 +67,17 @@ export interface BookingRequest {
 
   overrideReason?: string;
   printerIp?: string;
-  smartPosTerminalId?: string;
 }
 
 export interface ChangeRoomRequest {
   newRoomNumber: string;
   newRoomType: string;
   newTotalCost: number;
-  paymentMethod: string;
-  smartPosTerminalId?: string;
+  splitTenders?: SplitTenderRequest[];
 }
 
 export interface ExtendBookingRequest {
   newCheckOutDate: string;
   additionalCost: number;
-  paymentMethod: string;
-  smartPosTerminalId?: string;
+  splitTenders: SplitTenderRequest[];
 }

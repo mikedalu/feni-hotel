@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
         source: "/api/proxy/:path*",
         destination: "http://backend:8080/api/:path*", // Proxy to Backend in Docker (was localhost)
       },
+      {
+        source: "/uploads/:path*",
+        destination: "http://backend:8080/uploads/:path*",
+      },
     ];
   },
   allowedDevOrigins: ['hotel-hub.local']

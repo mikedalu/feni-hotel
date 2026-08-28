@@ -26,9 +26,6 @@ public class ProductRequest {
     @NotBlank(message = "Internal SKU is required")
     private String internalSku;
 
-    @PositiveOrZero(message = "Stock quantity must be zero or positive")
-    private Integer stockQty;
-
     @PositiveOrZero(message = "Low stock threshold must be zero or positive")
     private Integer lowStockThreshold;
 

@@ -36,6 +36,8 @@ public class InventoryIntakeService {
     private final OutboxEventRepository outboxRepo;
     private final ThermalPrinterService printerService;
     private final StaffUserRepository staffRepo;
+    private final com.backend.feni.repository.InventoryLocationRepository locationRepo;
+    private final com.backend.feni.repository.InventoryStockRepository stockRepo;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -67,7 +69,14 @@ public class InventoryIntakeService {
                 effectiveQuantity = itemReq.getQuantity() * (product.getConversionRatio() != null ? product.getConversionRatio() : 1);
             }
 
-            product.setStockQty((product.getStockQty() == null ? 0 : product.getStockQty()) + effectiveQuantity);
+            com.backend.feni.entity.InventoryLocation location = locationRepo.findById(request.getLocationId())
+                    .orElseThrow(() -> new IllegalArgumentException("Location not found"));
+
+            com.backend.feni.entity.InventoryStock stock = stockRepo.findByProductAndLocation(product, location)
+                    .orElse(com.backend.feni.entity.InventoryStock.builder().product(product).location(location).quantity(0).build());
+
+            stock.setQuantity(stock.getQuantity() + effectiveQuantity);
+            stockRepo.save(stock);
 
             BigDecimal lineValue;
             if (itemReq.getTotalCost() != null) {

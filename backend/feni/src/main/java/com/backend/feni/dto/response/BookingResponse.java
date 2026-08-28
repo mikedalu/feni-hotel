@@ -14,6 +14,7 @@ import java.util.UUID;
 @Builder
 public class BookingResponse {
     private UUID id;
+    private UUID guestId;
     private String guestFirstName;
     private String guestLastName;
     private String guestEmail;

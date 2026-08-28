@@ -17,6 +17,9 @@ export default function InventoryPage() {
   // Intake cart state
   const [cart, setCart] = useState<{ product: Product, quantity: number, isBulkIntake?: boolean, totalCost?: number | '' }[]>([]);
   const [printerIp, setPrinterIp] = useState('');
+  const [locationId, setLocationId] = useState('');
+  const [viewLocationId, setViewLocationId] = useState('ALL');
+  const [locations, setLocations] = useState<any[]>([]);
   
   const fetchProducts = async () => {
     try {
@@ -56,8 +59,13 @@ export default function InventoryPage() {
   
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProducts();
+    
+    // Fetch locations for intake
+    apiClient('/api/proxy/inventory/locations')
+      .then(res => res.json())
+      .then(data => setLocations(data))
+      .catch(err => console.error('Failed to fetch locations:', err));
   }, []);
 
   const addToCart = (product: Product) => {
@@ -93,6 +101,7 @@ export default function InventoryPage() {
             isBulkIntake: item.isBulkIntake,
             totalCost: item.totalCost === '' ? null : item.totalCost
           })),
+          locationId: locationId || undefined,
           printerIp: printerIp.trim() || null
         })
       });
@@ -271,6 +280,16 @@ export default function InventoryPage() {
           </div>
 
           <div className="flex items-center gap-4">
+            <select 
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+              className={`flex-1 border rounded-xl px-4 py-3 outline-none ${!locationId ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-50 focus:bg-white'}`}
+            >
+              <option value="">-- Select Intake Location --</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>{loc.name} ({loc.type})</option>
+              ))}
+            </select>
             <input 
               type="text" 
               placeholder="Printer IP (for SKU labels)" 
@@ -280,7 +299,7 @@ export default function InventoryPage() {
             />
             <button 
               onClick={handleIntake}
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || !locationId}
               className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-sm transition-all"
             >
               Complete Intake
@@ -290,32 +309,50 @@ export default function InventoryPage() {
 
         {/* Product Catalog Reference */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Manual Selection</h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Manual Selection</h3>
+            <select 
+              value={viewLocationId}
+              onChange={(e) => setViewLocationId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-gray-50 focus:bg-white outline-none"
+            >
+              <option value="ALL">All Locations (Total Stock)</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>{loc.name} Stock</option>
+              ))}
+            </select>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {products.filter(p => p.type === 'RAW_GOOD').map(p => (
-              <button
-                key={p.id}
-                onClick={() => {
-                  addToCart(p);
-                  toast.success(`Added ${p.name}`);
-                }}
-                className="p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-500 hover:shadow-md text-left transition-all group relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-indigo-50/0 group-hover:bg-indigo-50/50 transition-colors" />
-                <div className="relative z-10">
-                  <div className="font-semibold text-gray-900 text-sm">{p.name}</div>
-                  <div className="text-xs text-gray-500 mt-1 font-mono">{p.internalSku}</div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-                      Stock: {p.stockQty}
-                    </span>
-                    <span className="text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                      + Add
-                    </span>
+            {products.filter(p => p.type === 'RAW_GOOD').map(p => {
+              const displayStock = viewLocationId === 'ALL' 
+                ? p.stockQty 
+                : p.inventoryStocks?.find(s => s.locationId === viewLocationId)?.quantity || 0;
+                
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    addToCart(p);
+                    toast.success(`Added ${p.name}`);
+                  }}
+                  className="p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-500 hover:shadow-md text-left transition-all group relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-indigo-50/0 group-hover:bg-indigo-50/50 transition-colors" />
+                  <div className="relative z-10">
+                    <div className="font-semibold text-gray-900 text-sm">{p.name}</div>
+                    <div className="text-xs text-gray-500 mt-1 font-mono">{p.internalSku}</div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                        Stock: {displayStock}
+                      </span>
+                      <span className="text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                        + Add
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

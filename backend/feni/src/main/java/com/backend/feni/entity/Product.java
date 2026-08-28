@@ -42,8 +42,12 @@ public class Product {
     @Column(unique = true, nullable = false)
     private String internalSku;
 
-    // Current stock quantity, only meaningful for RAW_GOOD
-    private Integer stockQty;
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private java.util.List<InventoryStock> inventoryStocks = new java.util.ArrayList<>();
+
+    // Local-only product image URL
+    private String imageUrl;
 
     // Threshold for low stock alerts
     private Integer lowStockThreshold;

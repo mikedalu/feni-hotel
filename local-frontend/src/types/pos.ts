@@ -7,6 +7,7 @@ export interface Product {
   internalSku: string;
   hasManufacturerBarcode: boolean;
   stockQty?: number;
+  imageUrl?: string;
 }
 
 export interface CartItem extends Product {

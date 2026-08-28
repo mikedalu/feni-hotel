@@ -20,12 +20,16 @@ public class PosSaleRequest {
     // Optional printer IP to send the receipt to. If null, no receipt is printed.
     private String printerIp;
 
+    @NotNull(message = "Location is required for sale")
+    private java.util.UUID locationId;
+
     @Data
     public static class SplitTenderRequest {
         @NotNull
         private PaymentMethod paymentMethod;
 
         @NotNull
+        @jakarta.validation.constraints.DecimalMin(value = "0.01", message = "Tender amount must be greater than zero")
         private java.math.BigDecimal amount;
 
         private java.util.UUID smartPosTerminalId;

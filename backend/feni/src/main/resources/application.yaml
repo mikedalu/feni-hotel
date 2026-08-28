@@ -8,6 +8,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+  ai:
+    vertex:
+      ai:
+        gemini:
+          project-id: ${VERTEX_AI_PROJECT_ID:dummy-project-id}
+          location: ${VERTEX_AI_LOCATION:us-central1}
   mail:
     host: smtp.gmail.com
     port: 587

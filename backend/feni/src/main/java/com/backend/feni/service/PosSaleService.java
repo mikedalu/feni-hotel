@@ -42,6 +42,8 @@ public class PosSaleService {
     private final ObjectMapper objectMapper;
     private final com.backend.feni.repository.FacilityRepository facilityRepo;
     private final SmartPosTerminalRepository smartPosRepo;
+    private final com.backend.feni.repository.InventoryLocationRepository locationRepo;
+    private final com.backend.feni.repository.InventoryStockRepository stockRepo;
 
     @Transactional
     public void completeSale(PosSaleRequest request, UUID staffId) {
@@ -70,13 +72,23 @@ public class PosSaleService {
                                     "Product not found: " + itemReq.getSkuOrBarcode())));
 
             if (product.getType() == ProductType.RAW_GOOD) {
-                if (product.getStockQty() == null || product.getStockQty() < itemReq.getQuantity()) {
-                    throw new IllegalStateException("Insufficient stock for product: " + product.getName());
-                }
-                product.setStockQty(product.getStockQty() - itemReq.getQuantity());
+                com.backend.feni.entity.InventoryLocation location = locationRepo.findById(request.getLocationId())
+                        .orElseThrow(() -> new IllegalArgumentException("Location not found"));
+                com.backend.feni.entity.InventoryStock stock = stockRepo.findByProductAndLocation(product, location)
+                        .orElseThrow(() -> new IllegalStateException("Insufficient stock for product: " + product.getName() + " at this location"));
 
-                // Low stock check
-                if (product.getLowStockThreshold() != null && product.getStockQty() <= product.getLowStockThreshold()) {
+                if (stock.getQuantity() < itemReq.getQuantity()) {
+                    throw new IllegalStateException("Insufficient stock for product: " + product.getName() + " at this location");
+                }
+                stock.setQuantity(stock.getQuantity() - itemReq.getQuantity());
+                stockRepo.save(stock);
+
+                // Low stock check across all locations
+                int totalStock = product.getInventoryStocks().stream()
+                        .mapToInt(s -> s.getId().equals(stock.getId()) ? stock.getQuantity() : s.getQuantity())
+                        .sum();
+
+                if (product.getLowStockThreshold() != null && totalStock <= product.getLowStockThreshold()) {
                     String adminEmail = facilityRepo.findAll().stream().findFirst()
                             .map(com.backend.feni.entity.Facility::getAdminEmail)
                             .orElse("admin@feni.local");
@@ -84,8 +96,8 @@ public class PosSaleService {
                     if (adminEmail != null) {
                         String subject = "Low Stock Alert: " + product.getName();
                         String htmlBody = String.format(
-                                "<p>The stock for <b>%s</b> (SKU: %s) has dropped to <b>%d</b>, which is at or below the threshold of %d.</p>",
-                                product.getName(), product.getInternalSku(), product.getStockQty(),
+                                "<p>The total stock for <b>%s</b> (SKU: %s) has dropped to <b>%d</b>, which is at or below the threshold of %d.</p>",
+                                product.getName(), product.getInternalSku(), totalStock,
                                 product.getLowStockThreshold());
                         emailSender.send(adminEmail, subject, htmlBody);
                     }

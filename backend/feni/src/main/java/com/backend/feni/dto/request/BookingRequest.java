@@ -10,6 +10,9 @@ import com.backend.feni.entity.enums.PaymentMethod;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 
 @Data
 public class BookingRequest {
@@ -43,10 +46,8 @@ public class BookingRequest {
 
     private String checkInTime;
 
-    @NotNull
-    private PaymentMethod paymentMethod;
-
-    private java.util.UUID smartPosTerminalId;
+    @Valid
+    private List<SplitTenderRequest> splitTenders;
 
     @NotNull
     private BigDecimal totalCost;
@@ -68,4 +69,16 @@ public class BookingRequest {
     private String overrideReason;
 
     private String printerIp;
+
+    @Data
+    public static class SplitTenderRequest {
+        @NotNull
+        private PaymentMethod paymentMethod;
+
+        @NotNull
+        @jakarta.validation.constraints.DecimalMin(value = "0.01", message = "Tender amount must be greater than zero")
+        private BigDecimal amount;
+
+        private java.util.UUID smartPosTerminalId;
+    }
 }

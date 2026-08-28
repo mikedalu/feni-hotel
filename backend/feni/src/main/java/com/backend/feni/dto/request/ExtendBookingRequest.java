@@ -8,6 +8,8 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
+import jakarta.validation.Valid;
 
 @Data
 public class ExtendBookingRequest {
@@ -20,8 +22,18 @@ public class ExtendBookingRequest {
     @DecimalMin(value = "0.0", inclusive = true, message = "additionalCost must be zero or positive")
     private BigDecimal additionalCost;
 
-    @NotNull(message = "paymentMethod is required")
-    private PaymentMethod paymentMethod;
+    @Valid
+    private List<SplitTenderRequest> splitTenders;
 
-    private java.util.UUID smartPosTerminalId;
+    @Data
+    public static class SplitTenderRequest {
+        @NotNull
+        private PaymentMethod paymentMethod;
+
+        @NotNull
+        @jakarta.validation.constraints.DecimalMin(value = "0.01", message = "Tender amount must be greater than zero")
+        private BigDecimal amount;
+
+        private java.util.UUID smartPosTerminalId;
+    }
 }

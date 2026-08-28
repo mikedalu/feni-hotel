@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/apiClient';
-import { BookingResponse, ExtendBookingRequest } from '@/types/booking';
+import { BookingResponse, ExtendBookingRequest, SplitTenderRequest } from '@/types/booking';
 import { RoomResponse } from '@/types/room';
+import { SplitTenderInput } from '@/components/ui/SplitTenderInput';
 
 interface ExtendBookingModalProps {
   booking: BookingResponse;
@@ -19,8 +20,18 @@ export default function ExtendBookingModal({ booking, onClose, onSubmit, isSubmi
 
   const [newCheckOutDate, setNewCheckOutDate] = useState<string>(defaultDateStr);
   const [additionalCost, setAdditionalCost] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
+  const [splitTenders, setSplitTenders] = useState<SplitTenderRequest[]>([{ id: '1', paymentMethod: 'POS', amount: 0 }]);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: terminals = [] } = useQuery({
+    queryKey: ['smartPosTerminals'],
+    queryFn: async () => {
+      const res = await apiClient('/api/proxy/admin/smart-pos');
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+  const activeTerminals = terminals.filter((t: { id: string; name: string; isActive: boolean }) => t.isActive);
 
   const { data: rooms = [] } = useQuery<RoomResponse[]>({
     queryKey: ['rooms'],
@@ -50,6 +61,12 @@ export default function ExtendBookingModal({ booking, onClose, onSubmit, isSubmi
     }
   }, [newCheckOutDate, booking.checkOutDate, booking.roomNumber, rooms]);
 
+  useEffect(() => {
+    if (splitTenders.length === 1) {
+      setSplitTenders(prev => [{ ...prev[0], amount: additionalCost }]);
+    }
+  }, [additionalCost]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCheckOutDate) {
@@ -65,11 +82,22 @@ export default function ExtendBookingModal({ booking, onClose, onSubmit, isSubmi
 
     setError(null);
     try {
-      await onSubmit({
+      const payload: ExtendBookingRequest = {
         newCheckOutDate,
         additionalCost,
-        paymentMethod,
-      });
+        splitTenders: [],
+      };
+
+      if (additionalCost > 0) {
+        const tenderedTotal = splitTenders.reduce((sum, t) => sum + (t.amount || 0), 0);
+        if (Math.abs(tenderedTotal - additionalCost) > 0.01) {
+          setError(`Sum of split tenders (₦${tenderedTotal.toFixed(2)}) does not match additional cost (₦${additionalCost.toFixed(2)})`);
+          return;
+        }
+        payload.splitTenders = splitTenders.map(({ id, ...rest }) => rest);
+      }
+
+      await onSubmit(payload);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -134,17 +162,12 @@ export default function ExtendBookingModal({ booking, onClose, onSubmit, isSubmi
                 </p>
                 
                 <div className="mt-3">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method *</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    required
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-xs p-2 border bg-white"
-                  >
-                    <option value="CASH">Cash</option>
-                    <option value="POS">Card Terminal (POS)</option>
-                    <option value="TRANSFER">Bank Transfer</option>
-                  </select>
+                  <SplitTenderInput 
+                    tenders={splitTenders as any} 
+                    setTenders={(tenders) => setSplitTenders(tenders)} 
+                    total={additionalCost} 
+                    activeTerminals={activeTerminals} 
+                  />
                 </div>
               </div>
             )}

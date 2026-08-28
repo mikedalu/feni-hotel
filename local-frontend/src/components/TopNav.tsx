@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Menu, X, Home, ShoppingCart, KeyRound, 
   Users, Bed, Tag, SprayCan, Package, 
-  ClipboardList, LogOut, Settings, ChevronDown, BookOpen
+  ClipboardList, LogOut, Settings, ChevronDown, BookOpen, Receipt
 } from 'lucide-react';
 
 export default function TopNav() {
@@ -61,6 +61,7 @@ export default function TopNav() {
       links.push({ href: '/admin/staff', label: 'Staff', icon: Users });
       links.push({ href: '/admin/rooms', label: 'Rooms', icon: Bed });
       links.push({ href: '/admin/promos', label: 'Promos', icon: Tag });
+      links.push({ href: '/admin/transactions', label: 'Transactions', icon: Receipt });
       links.push({ href: '/admin/ledger', label: 'Ledger', icon: BookOpen });
       links.push({ href: '/admin/settings', label: 'Settings', icon: Settings });
     }

@@ -7,6 +7,8 @@ import { useCheckinPolling } from '@/hooks/useCheckinPolling';
 import { QrCodeIcon, CheckCircleIcon, ArrowPathIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
 import { apiClient } from '@/lib/apiClient';
 import { RoomResponse } from '@/types/room';
+import { SplitTenderInput } from '@/components/ui/SplitTenderInput';
+import { SplitTenderRequest } from '@/types/booking';
 
 interface RecoverableSession {
   sessionId: string;
@@ -32,11 +34,10 @@ export default function ReceptionCheckinPage() {
   // Receptionist Inputs
   const [roomNumber, setRoomNumber] = useState('');
   const [roomType, setRoomType] = useState('Standard');
-  const [paymentMethod, setPaymentMethod] = useState('POS');
+  const [splitTenders, setSplitTenders] = useState<SplitTenderRequest[]>([{ id: '1', paymentMethod: 'POS', amount: 0 }]);
   const [checkOutDate, setCheckOutDate] = useState(() => new Date(Date.now() + 86400000).toISOString().split('T')[0]);
   const [totalCost, setTotalCost] = useState('0');
   const [systemCalculatedCost, setSystemCalculatedCost] = useState<number>(0);
-  const [smartPosTerminalId, setSmartPosTerminalId] = useState('');
 
   const { data: terminals = [] } = useQuery({
     queryKey: ['smartPosTerminals'],
@@ -79,6 +80,7 @@ export default function ReceptionCheckinPage() {
       const autoCost = room.currentPrice * nights;
       setSystemCalculatedCost(autoCost);
       setTotalCost(autoCost.toString());
+      setSplitTenders(prev => prev.length === 1 ? [{ ...prev[0], amount: autoCost }] : prev);
     }
   };
 
@@ -143,8 +145,7 @@ export default function ReceptionCheckinPage() {
         checkOutDate: checkOutDate,
         roomNumber: roomNumber,
         roomType: roomType,
-        paymentMethod: paymentMethod,
-        smartPosTerminalId: (paymentMethod === 'POS' || paymentMethod === 'TRANSFER') && smartPosTerminalId ? smartPosTerminalId : null,
+        splitTenders: splitTenders.map(({ id, ...rest }) => rest),
         totalCost: Number(totalCost),
         title: sessionData.title,
         occupation: sessionData.occupation,
@@ -411,29 +412,14 @@ export default function ReceptionCheckinPage() {
                           <label className="block text-sm font-medium text-gray-700">Check-out Date</label>
                           <input type="date" required value={checkOutDate} min={new Date().toISOString().split('T')[0]} onChange={e => handleCheckOutDateChange(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border" />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Payment Method</label>
-                          <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border">
-                            <option value="POS">Card (POS)</option>
-                            <option value="CASH">Cash</option>
-                            <option value="TRANSFER">Transfer</option>
-                          </select>
+                        <div className="col-span-2 mt-4 border-t border-gray-200 pt-4">
+                          <SplitTenderInput 
+                            tenders={splitTenders as any} 
+                            setTenders={(tenders) => setSplitTenders(tenders)} 
+                            total={Number(totalCost) || 0} 
+                            activeTerminals={activeTerminals} 
+                          />
                         </div>
-                        {(paymentMethod === 'POS' || paymentMethod === 'TRANSFER') && activeTerminals.length > 0 && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700">Smart POS Terminal</label>
-                            <select 
-                              value={smartPosTerminalId} 
-                              onChange={e => setSmartPosTerminalId(e.target.value)} 
-                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
-                            >
-                              <option value="">-- Select Terminal (Optional) --</option>
-                              {activeTerminals.map((term: { id: string; name: string; isActive: boolean }) => (
-                                <option key={term.id} value={term.id}>{term.name}</option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
                         <div className="col-span-2">
                           <label className="block text-sm font-medium text-gray-700 flex justify-between">
                             <span>Total Cost (₦)</span>
@@ -441,7 +427,20 @@ export default function ReceptionCheckinPage() {
                               <span className="text-gray-500 text-xs">Calculated: ₦{systemCalculatedCost.toLocaleString()}</span>
                             )}
                           </label>
-                          <input type="number" required value={totalCost} onChange={e => setTotalCost(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border" />
+                          <input 
+                            type="number" 
+                            required 
+                            value={totalCost} 
+                            onChange={e => {
+                              const val = e.target.value;
+                              setTotalCost(val);
+                              const numVal = parseFloat(val) || 0;
+                              if (splitTenders.length === 1) {
+                                setSplitTenders([{ ...splitTenders[0], amount: numVal }]);
+                              }
+                            }} 
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border" 
+                          />
                           <p className="text-xs text-gray-500 mt-1">You can override this value manually to apply discounts or promos.</p>
                         </div>
                       </div>

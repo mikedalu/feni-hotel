@@ -18,6 +18,8 @@ public class ProductResponse {
     private String manufacturerBarcode;
     private String internalSku;
     private Integer stockQty;
+    private java.util.List<InventoryStockResponse> inventoryStocks;
+    private String imageUrl;
     private Integer lowStockThreshold;
     private BigDecimal price;
     private BigDecimal unitCost;

@@ -58,90 +58,90 @@ export default function DashboardPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start justify-between">
+        <div className="bg-white rounded-3xl p-8 shadow-md border border-gray-100 flex items-start justify-between">
           <div>
-            <div className="group relative flex items-center gap-1.5 cursor-help">
-              <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-              <Info className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 font-medium">
+            <div className="group relative flex items-center gap-2 cursor-help">
+              <p className="text-base font-medium text-gray-500">Total Revenue</p>
+              <Info className="w-4 h-4 text-gray-400" />
+              <div className="absolute bottom-full left-0 mb-3 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-xl shadow-xl z-10 font-medium">
                 Total money collected from all sales and room bookings.
-                <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1"></div>
+                <div className="absolute top-full left-4 w-3 h-3 bg-gray-900 transform rotate-45 -mt-1.5"></div>
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mt-1">
+            <h3 className="text-3xl font-extrabold text-gray-900 mt-2 tracking-tight">
               ₦{data.summary.totalRevenue.toLocaleString()}
             </h3>
           </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-            <DollarSign className="w-6 h-6" />
+          <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
+            <DollarSign className="w-8 h-8" />
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start justify-between">
+        <div className="bg-white rounded-3xl p-8 shadow-md border border-gray-100 flex items-start justify-between">
           <div>
-            <div className="group relative flex items-center gap-1.5 cursor-help">
-              <p className="text-sm font-medium text-gray-500">Total Bookings</p>
-              <Info className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 font-medium">
+            <div className="group relative flex items-center gap-2 cursor-help">
+              <p className="text-base font-medium text-gray-500">Total Bookings</p>
+              <Info className="w-4 h-4 text-gray-400" />
+              <div className="absolute bottom-full left-0 mb-3 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-xl shadow-xl z-10 font-medium">
                 Total number of successful room reservations during the period.
-                <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1"></div>
+                <div className="absolute top-full left-4 w-3 h-3 bg-gray-900 transform rotate-45 -mt-1.5"></div>
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mt-1">
+            <h3 className="text-3xl font-extrabold text-gray-900 mt-2 tracking-tight">
               {data.summary.totalBookings.toLocaleString()}
             </h3>
           </div>
-          <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
-            <Users className="w-6 h-6" />
+          <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl">
+            <Users className="w-8 h-8" />
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start justify-between">
+        <div className="bg-white rounded-3xl p-8 shadow-md border border-gray-100 flex items-start justify-between">
           <div>
-            <div className="group relative flex items-center gap-1.5 cursor-help">
-              <p className="text-sm font-medium text-gray-500">Gross Profit</p>
-              <Info className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 font-medium">
+            <div className="group relative flex items-center gap-2 cursor-help">
+              <p className="text-base font-medium text-gray-500">Gross Profit</p>
+              <Info className="w-4 h-4 text-gray-400" />
+              <div className="absolute bottom-full left-0 mb-3 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-xl shadow-xl z-10 font-medium">
                 Revenue minus the Cost of Goods Sold (COGS).
-                <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1"></div>
+                <div className="absolute top-full left-4 w-3 h-3 bg-gray-900 transform rotate-45 -mt-1.5"></div>
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mt-1">
+            <h3 className="text-3xl font-extrabold text-gray-900 mt-2 tracking-tight">
               ₦{data.summary.grossProfit.toLocaleString()}
             </h3>
           </div>
-          <div className="p-3 bg-green-50 text-green-600 rounded-xl">
-            <TrendingUp className="w-6 h-6" />
+          <div className="p-4 bg-green-50 text-green-600 rounded-2xl">
+            <TrendingUp className="w-8 h-8" />
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-start justify-between">
+        <div className="bg-white rounded-3xl p-8 shadow-md border border-gray-100 flex items-start justify-between">
           <div>
-            <div className="group relative flex items-center gap-1.5 cursor-help">
-              <p className="text-sm font-medium text-gray-500">Avg. Margin</p>
-              <Info className="w-3.5 h-3.5 text-gray-400" />
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-56 p-2.5 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10 font-medium">
+            <div className="group relative flex items-center gap-2 cursor-help">
+              <p className="text-base font-medium text-gray-500">Avg. Margin</p>
+              <Info className="w-4 h-4 text-gray-400" />
+              <div className="absolute bottom-full left-0 mb-3 hidden group-hover:block w-64 p-3 bg-gray-900 text-white text-sm rounded-xl shadow-xl z-10 font-medium">
                 The percentage of revenue you keep as gross profit.
-                <div className="absolute top-full left-4 w-2 h-2 bg-gray-900 transform rotate-45 -mt-1"></div>
+                <div className="absolute top-full left-4 w-3 h-3 bg-gray-900 transform rotate-45 -mt-1.5"></div>
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mt-1">
+            <h3 className="text-3xl font-extrabold text-gray-900 mt-2 tracking-tight">
               {data.summary.totalRevenue > 0 
                 ? Math.round((data.summary.grossProfit / data.summary.totalRevenue) * 100)
                 : 0}%
             </h3>
           </div>
-          <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
-            <Activity className="w-6 h-6" />
+          <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl">
+            <Activity className="w-8 h-8" />
           </div>
         </div>
       </div>
 
       {/* Chart Section */}
       {period !== 'today' && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-3xl p-8 shadow-md border border-gray-100">
           <h3 className="text-lg font-bold text-gray-900 mb-6">
             Revenue vs COGS {period === 'week' ? '(Last 7 Days)' : '(Last 30 Days)'}
           </h3>

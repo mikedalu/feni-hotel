@@ -14,5 +14,6 @@ public class InventoryIntakeItemRequest {
 
     private boolean isBulkIntake;
     
+    @jakarta.validation.constraints.DecimalMin(value = "0.00", message = "Total cost cannot be negative")
     private java.math.BigDecimal totalCost;
 }

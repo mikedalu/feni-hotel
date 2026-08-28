@@ -22,9 +22,21 @@ export default function POSPage() {
     return "";
   });
 
+  const [locationId, setLocationId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("feni_pos_location_id") || "";
+    }
+    return "";
+  });
+
   const handlePrinterIpChange = (val: string) => {
     setPrinterIp(val);
     localStorage.setItem("feni_pos_printer_ip", val);
+  };
+
+  const handleLocationIdChange = (val: string) => {
+    setLocationId(val);
+    localStorage.setItem("feni_pos_location_id", val);
   };
 
   const { data: products = [], isLoading, error } = useQuery<Product[]>({
@@ -87,7 +99,7 @@ export default function POSPage() {
     }
   });
 
-  const handleCheckout = async (splitTenders: { paymentMethod: string; amount: number; smartPosTerminalId?: string }[], selectedPrinterIp: string) => {
+  const handleCheckout = async (splitTenders: { paymentMethod: string; amount: number; smartPosTerminalId?: string }[], selectedPrinterIp: string, selectedLocationId: string) => {
     if (cart.length === 0) return;
     setIsProcessing(true);
 
@@ -97,6 +109,7 @@ export default function POSPage() {
         quantity: item.cartQuantity
       })),
       splitTenders,
+      locationId: selectedLocationId,
       printerIp: selectedPrinterIp.trim() || undefined
     };
 
@@ -133,12 +146,20 @@ export default function POSPage() {
     }
   };
 
+  const hasRawGoods = cart.some(item => item.productType === "RAW_GOOD");
+
   const handlePrintPreReceipt = async (printerIp: string) => {
     if (cart.length === 0 || !printerIp) return;
     setIsProcessing(true);
+    if (hasRawGoods && !locationId) {
+      toast.error("Please select a Stock Location for inventory items before printing a bill.");
+      setIsProcessing(false);
+      return;
+    }
     
     try {
       const request = {
+        locationId,
         items: cart.map(item => ({
           skuOrBarcode: item.internalSku,
           quantity: item.cartQuantity
@@ -175,9 +196,15 @@ export default function POSPage() {
 
   const handleDownloadInvoice = async () => {
     if (cart.length === 0) return;
+    if (hasRawGoods && !locationId) {
+      toast.error("Please select a Stock Location for inventory items before downloading an invoice.");
+      return;
+    }
+    
     setIsProcessing(true);
 
     const request = {
+      locationId,
       items: cart.map(item => ({
         skuOrBarcode: item.internalSku,
         quantity: item.cartQuantity
@@ -290,14 +317,17 @@ export default function POSPage() {
         />
       </aside>
 
-      <CheckoutModal 
+      <CheckoutModal
         isOpen={isCheckoutModalOpen}
         onClose={() => setIsCheckoutModalOpen(false)}
         total={cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0)}
         onConfirm={handleCheckout}
         printerIp={printerIp}
         setPrinterIp={handlePrinterIpChange}
+        locationId={locationId}
+        setLocationId={handleLocationIdChange}
         isProcessing={isProcessing}
+        hasRawGoods={hasRawGoods}
       />
     </div>
   );

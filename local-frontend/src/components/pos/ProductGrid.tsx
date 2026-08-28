@@ -26,11 +26,22 @@ export default function ProductGrid({ products, onProductClick, selectedCategory
               : "bg-blue-50 border-blue-200 hover:border-blue-400"}
           `}
         >
-          <div>
-            <h3 className="font-bold text-gray-800 line-clamp-2">{product.name}</h3>
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-              {product.category}
-            </span>
+          <div className="flex items-start justify-between w-full">
+            <div className="flex-1 pr-2">
+              <h3 className="font-bold text-gray-800 line-clamp-2">{product.name}</h3>
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {product.category}
+              </span>
+            </div>
+            {product.imageUrl && (
+              <div className="w-12 h-12 flex-shrink-0">
+                <img 
+                  src={(product.imageUrl.startsWith('/api/') || product.imageUrl.startsWith('/uploads/')) ? product.imageUrl : `/api/proxy${product.imageUrl}`} 
+                  alt={product.name} 
+                  className="w-full h-full object-cover rounded-lg shadow-sm"
+                />
+              </div>
+            )}
           </div>
           
           <div className="flex justify-between items-end mt-4">

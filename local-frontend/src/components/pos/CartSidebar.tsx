@@ -66,6 +66,13 @@ export default function CartSidebar({
         ) : (
           cart.map((item) => (
             <div key={item.id} className="flex gap-4 p-3 bg-gray-50 rounded-xl border items-center shadow-sm">
+              {item.imageUrl && (
+                <img 
+                  src={(item.imageUrl.startsWith('/api/') || item.imageUrl.startsWith('/uploads/')) ? item.imageUrl : `/api/proxy${item.imageUrl}`} 
+                  alt={item.name} 
+                  className="w-10 h-10 object-cover rounded shadow-sm"
+                />
+              )}
               <div className="flex-1 min-w-0">
                 <h4 className="font-bold text-gray-900 truncate">{item.name}</h4>
                 <p className="text-sm text-gray-500 font-medium">
